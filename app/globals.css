@@ -1,26 +1,71 @@
 @import "tailwindcss";
 
+/* Monsoon dual theme. Dark (storm sky) is the default; [data-theme="light"]
+   overrides. One accent (rain teal) in both modes.
+   Chart series colors are identical in both modes and validated for both
+   surfaces (dataviz six-checks): gated #0d9488, naive #b45309, hodl #6366f1. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0e13;
+  --surface: #10161e;
+  --surface-raised: #141c26;
+  --line: #1e2836;
+  --foreground: #e8edf2;
+  --muted: #8b98a8;
+  --faint: #5b6878;
+  --accent: #4fd1c5;
+  --accent-dim: #2a6f68;
+  --accent-ink: #062421;
+  --warn: #e8b34b;
+  --series-gated: #0d9488;
+  --series-naive: #b45309;
+  --series-hodl: #6366f1;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --background: #f4f6f8;
+  --surface: #ffffff;
+  --surface-raised: #e9edf2;
+  --line: #d9e0e8;
+  --foreground: #16202b;
+  --muted: #55636f;
+  --faint: #83919e;
+  --accent: #0f766e;
+  --accent-dim: #99d5cf;
+  --accent-ink: #ffffff;
+  --warn: #92600a;
+  color-scheme: light;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-line: var(--line);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-ink: var(--accent-ink);
+  --color-warn: var(--warn);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--accent-dim);
+  color: var(--foreground);
+}
+
+/* numerals always tabular */
+.num {
+  font-family: var(--font-geist-mono), monospace;
+  font-variant-numeric: tabular-nums;
 }
