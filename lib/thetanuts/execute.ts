@@ -2,7 +2,7 @@
 "use client";
 
 import { BrowserProvider } from "ethers";
-import { ThetanutsClient } from "@thetanuts-finance/thetanuts-client";
+import { MemoryStorageProvider, ThetanutsClient } from "@thetanuts-finance/thetanuts-client";
 
 export interface ExecResult {
   txHash: string;
@@ -71,7 +71,15 @@ export async function executeFill(
     });
   }
   const signer = await provider.getSigner();
-  const client = new ThetanutsClient({ chainId: 8453, provider, signer });
+  // Monsoon never touches RFQ keys client-side (OptionBook fills only), but the
+  // SDK requires an explicit key store in browsers; in-memory satisfies it
+  // without persisting anything.
+  const client = new ThetanutsClient({
+    chainId: 8453,
+    provider,
+    signer,
+    keyStorageProvider: new MemoryStorageProvider(),
+  });
 
   const usdcAmount = BigInt(Math.round(usdcCollateral * 1e6));
 
