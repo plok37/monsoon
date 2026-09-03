@@ -21,6 +21,47 @@ interface ClientMessage {
   content: string;
 }
 
+export interface Verification {
+  score: number;        // 0-100 faithfulness of the reply to the tool data
+  issues: string[];
+  requestId: string | null;
+}
+
+/** Independent second Gonka pass: does the reply's every claim match the tool data?
+ *  No tool data means nothing to verify (pure explanation), so we skip. */
+async function verifyReply(reply: string, toolLog: string[]): Promise<Verification | null> {
+  if (!reply || toolLog.length === 0) return null;
+  try {
+    const { message, requestId } = await gonkaChat([
+      {
+        role: "system",
+        content:
+          "You are a strict verification pass. Compare the ANSWER against the TOOL DATA it was derived from. Check every number, gate status, strike, premium, and probability. Reply with ONLY a JSON object: {\"score\": 0-100, \"issues\": [\"...\"]}. score 100 = every claim traceable to the data; deduct for unsupported or contradicted claims. No prose.",
+      },
+      {
+        role: "user",
+        content: `TOOL DATA:\n${toolLog.join("\n").slice(0, 6000)}\n\nANSWER:\n${reply.slice(0, 3000)}`,
+      },
+    ]);
+    const raw = (message.content ?? "")
+      .replace(/<think>[\s\S]*?<\/think>/g, "")
+      .trim();
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+    const parsed = JSON.parse(jsonMatch[0]);
+    const score = Math.max(0, Math.min(100, Number(parsed.score)));
+    if (!Number.isFinite(score)) return null;
+    return {
+      score,
+      issues: Array.isArray(parsed.issues) ? parsed.issues.slice(0, 3).map(String) : [],
+      requestId,
+    };
+  } catch (e) {
+    console.error("verification pass failed:", e);
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   let body: { messages?: ClientMessage[] };
   try {
@@ -39,6 +80,7 @@ export async function POST(req: NextRequest) {
   ];
 
   const requestIds: string[] = [];
+  const toolLog: string[] = [];
   let ticket: TradeTicket | undefined;
 
   try {
@@ -52,10 +94,12 @@ export async function POST(req: NextRequest) {
           .replace(/<think>[\s\S]*?<\/think>/g, "")
           .replace(/^<think>[\s\S]*/g, "")
           .trim();
+        const verification = await verifyReply(reply, toolLog);
         return NextResponse.json({
           reply,
           ticket: ticket ?? null,
           requestIds,
+          verification,
         });
       }
 
@@ -67,6 +111,7 @@ export async function POST(req: NextRequest) {
         } catch {}
         const out = await runTool(tc.function.name, args);
         if (out.ticket) ticket = out.ticket;
+        toolLog.push(`${tc.function.name}(${tc.function.arguments}) -> ${out.result}`);
         messages.push({
           role: "tool",
           tool_call_id: tc.id,

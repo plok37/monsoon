@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { PaperPlaneRightIcon, CloudRainIcon } from "@phosphor-icons/react";
+import { PaperPlaneRightIcon, CloudRainIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 import type { TradeTicket } from "@/lib/copilot/tools";
 import { TradeTicketCard } from "./trade-ticket";
 
@@ -10,6 +10,7 @@ interface ChatItem {
   content: string;
   ticket?: TradeTicket | null;
   requestIds?: string[];
+  verification?: { score: number; issues: string[]; requestId: string | null } | null;
 }
 
 /** Minimal markdown: only **bold** spans, rendered as React elements (no HTML injection). */
@@ -54,7 +55,13 @@ export function CopilotView() {
       if (!res.ok) throw new Error(json.error ?? `copilot ${res.status}`);
       setItems((cur) => [
         ...cur,
-        { role: "assistant", content: json.reply, ticket: json.ticket, requestIds: json.requestIds },
+        {
+          role: "assistant",
+          content: json.reply,
+          ticket: json.ticket,
+          requestIds: json.requestIds,
+          verification: json.verification,
+        },
       ]);
     } catch (e) {
       setItems((cur) => [
@@ -101,9 +108,26 @@ export function CopilotView() {
                 <p className="whitespace-pre-wrap text-sm leading-relaxed">{renderBold(m.content)}</p>
               </div>
               {m.ticket && <TradeTicketCard ticket={m.ticket} />}
+              {m.verification && (
+                <div className="flex items-start gap-2 pl-8 text-xs">
+                  <ShieldCheckIcon
+                    size={14}
+                    weight="fill"
+                    className={m.verification.score >= 80 ? "text-accent" : "text-warn"}
+                  />
+                  <span className="text-muted">
+                    Independently verified against the tool data: faithfulness{" "}
+                    <span className="num text-foreground">{m.verification.score}/100</span>
+                    {m.verification.issues.length > 0 && (
+                      <span className="text-faint"> · {m.verification.issues.join("; ")}</span>
+                    )}
+                  </span>
+                </div>
+              )}
               {m.requestIds && m.requestIds.length > 0 && (
                 <p className="num pl-8 text-xs text-faint">
-                  Gonka request {m.requestIds.join(" · ")}
+                  Gonka request{" "}
+                  {[...m.requestIds, ...(m.verification?.requestId ? [m.verification.requestId] : [])].join(" · ")}
                 </p>
               )}
             </div>
