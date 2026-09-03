@@ -103,7 +103,7 @@ export async function runTool(
     );
     return {
       result: lines.length
-        ? `ETH spot $${scan.spot}. Selling an option means: you receive the premium now, your collateral is locked until expiry.\nIMPORTANT: fills are FRACTIONAL. "collateral $X/contract" is per 1.0 contract, not a minimum. Committing any USDC amount (even $10) sells usdc/collateral contracts and earns premium pro-rata. Example: $12 into a put with $2400 collateral and $5 premium per contract sells 0.005 contracts and earns $0.025.\n${lines.join("\n")}`
+        ? `ETH spot $${scan.spot}. Offer ids (D.., S.., M..) are Monsoon's own labels for this list, not Thetanuts identifiers. Selling an option means: you receive the premium now, your collateral is locked until expiry.\nIMPORTANT: fills are FRACTIONAL. "collateral $X/contract" is per 1.0 contract, not a minimum. Committing any USDC amount (even $10) sells usdc/collateral contracts and earns premium pro-rata. Example: $12 into a put with $2400 collateral and $5 premium per contract sells 0.005 contracts and earns $0.025.\n${lines.join("\n")}`
         : "No live offers right now.",
     };
   }

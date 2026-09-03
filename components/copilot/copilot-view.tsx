@@ -10,7 +10,12 @@ interface ChatItem {
   content: string;
   ticket?: TradeTicket | null;
   requestIds?: string[];
-  verification?: { score: number; issues: string[]; requestId: string | null } | null;
+  verification?: {
+    score: number;
+    issues: string[];
+    requestId: string | null;
+    corrected?: boolean;
+  } | null;
 }
 
 /** Minimal markdown: only **bold** spans, rendered as React elements (no HTML injection). */
@@ -118,6 +123,12 @@ export function CopilotView() {
                   <span className="text-muted">
                     Independently verified against the tool data: faithfulness{" "}
                     <span className="num text-foreground">{m.verification.score}/100</span>
+                    {m.verification.corrected && (
+                      <span className="text-faint">
+                        {" "}
+                        · first draft failed verification and was rewritten
+                      </span>
+                    )}
                     {m.verification.issues.length > 0 && (
                       <span className="text-faint"> · {m.verification.issues.join("; ")}</span>
                     )}

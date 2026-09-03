@@ -14,7 +14,12 @@ Rules:
 - Selling a put = being paid now to promise to buy ETH at the strike. Always state: premium received, collateral locked, the worst case, and assignment odds.
 - If the gates are closed, say plainly that Monsoon is not underwriting at these conditions and why; defined-risk put spreads (S..) and small direct fills (D..) remain available for users who understand them.
 - Only call propose_trade after the user clearly picked an offer and an amount. Never propose more than the user's stated budget.
-- Never recommend leverage, never promise returns, never call anything safe. Keep replies under 150 words unless asked for depth.`;
+- Never recommend leverage, never promise returns, never call anything safe. Keep replies under 150 words unless asked for depth.
+- Offer ids (D1.., S1.., M1..) are MONSOON's own shelf labels, assigned by the get_shelf tool. They are not Thetanuts identifiers; never claim they come from Thetanuts.
+- A put spread's max loss is the spread width MINUS the premium received (e.g. $20 width, $12.61 premium: max loss $7.39/contract). Never say the loss is capped at the full width.
+- Never annualize an offer shorter than 7 days; an APY on a 1-day option is meaningless. Quote the raw cycle yield instead.
+- Moneyness: a put is IN the money (assignment likely) when spot is BELOW the strike, and out of the money when spot is ABOVE it. Always check which side spot is on before describing an offer's risk direction, and say plainly when a short strike is already in the money.
+- Formatting: plain sentences, short **bold** lead-ins, and hyphen lists only. Never output markdown tables, horizontal rules (---), or em-dashes; the chat cannot render them.`;
 
 interface ClientMessage {
   role: "user" | "assistant";
@@ -25,6 +30,15 @@ export interface Verification {
   score: number;        // 0-100 faithfulness of the reply to the tool data
   issues: string[];
   requestId: string | null;
+  corrected?: boolean;  // true when a failed first draft was rewritten and re-verified
+}
+
+/** MiniMax is a reasoning model; drop its <think> scratchpad. */
+function stripThink(content: string | null): string {
+  return (content ?? "")
+    .replace(/<think>[\s\S]*?<\/think>/g, "")
+    .replace(/^<think>[\s\S]*/g, "")
+    .trim();
 }
 
 /** Independent second Gonka pass: does the reply's every claim match the tool data?
@@ -89,12 +103,31 @@ export async function POST(req: NextRequest) {
       if (requestId) requestIds.push(requestId);
 
       if (!message.tool_calls?.length) {
-        // MiniMax is a reasoning model; drop its <think> scratchpad.
-        const reply = (message.content ?? "")
-          .replace(/<think>[\s\S]*?<\/think>/g, "")
-          .replace(/^<think>[\s\S]*/g, "")
-          .trim();
-        const verification = await verifyReply(reply, toolLog);
+        let reply = stripThink(message.content);
+        let verification = await verifyReply(reply, toolLog);
+        // Self-correction: if the verifier flags factual errors, give the model
+        // one chance to fix them before the user ever sees the answer.
+        if (verification && verification.score < 80 && verification.issues.length) {
+          try {
+            const { message: fixed, requestId: fixId } = await gonkaChat([
+              ...messages,
+              { role: "assistant", content: reply },
+              {
+                role: "user",
+                content: `An independent verification pass found factual errors in your answer: ${verification.issues.join("; ")}. Rewrite the full answer using only correct numbers from the tool data. Same formatting rules.`,
+              },
+            ]);
+            if (fixId) requestIds.push(fixId);
+            const fixedReply = stripThink(fixed.content);
+            const fixedVerification = await verifyReply(fixedReply, toolLog);
+            if (fixedVerification && fixedVerification.score > verification.score) {
+              reply = fixedReply;
+              verification = { ...fixedVerification, corrected: true };
+            }
+          } catch (e) {
+            console.error("self-correction failed:", e);
+          }
+        }
         return NextResponse.json({
           reply,
           ticket: ticket ?? null,
