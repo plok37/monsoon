@@ -8,6 +8,7 @@ import type { ShelfResponse, OfferView, MonthlyIndicationView } from "@/lib/type
 import { GateChecklist } from "./gate-checklist";
 import { OfferCard } from "./offer-card";
 import { ReservePanel } from "@/components/reserve/reserve-panel";
+import { RfqUnderwrite } from "@/components/rfq/rfq-underwrite";
 
 const DEMO_DATE = "2022-06-18";
 
@@ -152,6 +153,14 @@ function LiveOpenShelf({ offers }: { offers: Extract<ShelfResponse, { mode: "liv
           <OfferCard key={i} offer={o} index={i} />
         ))}
       </div>
+      {offers.monthlyRfq.length > 0 && (
+        <div className="mt-8 max-w-xl">
+          <RfqUnderwrite
+            defaultStrike={offers.monthlyRfq[0].strike}
+            suggestedPremium={offers.monthlyRfq[0].estSellerPremium}
+          />
+        </div>
+      )}
     </>
   );
 }
@@ -195,6 +204,14 @@ function LiveClosedShelf({
             </tbody>
           </table>
         </div>
+        {monthly.length > 0 && (
+          <div className="mt-5">
+            <RfqUnderwrite
+              defaultStrike={monthly[0].strike}
+              suggestedPremium={monthly[0].estSellerPremium}
+            />
+          </div>
+        )}
       </div>
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Meanwhile, the reserve works</h2>
