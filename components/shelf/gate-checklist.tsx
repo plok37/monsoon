@@ -1,7 +1,7 @@
 "use client";
 
 import type { GateDecision } from "@/lib/engine/gates";
-import { CheckCircle, Circle } from "@phosphor-icons/react";
+import { CheckCircleIcon, CircleIcon } from "@phosphor-icons/react";
 
 const GATE_ORDER = ["drawdown", "ivRank", "premFloor"] as const;
 const GATE_FALLBACK_LABELS: Record<(typeof GATE_ORDER)[number], string> = {
@@ -27,9 +27,9 @@ export function GateChecklist({ decision }: { decision: GateDecision }) {
           >
             <div className="flex items-center gap-2">
               {pass ? (
-                <CheckCircle size={18} weight="fill" className="shrink-0 text-accent" />
+                <CheckCircleIcon size={18} weight="fill" className="shrink-0 text-accent" />
               ) : (
-                <Circle size={18} className="shrink-0 text-faint" />
+                <CircleIcon size={18} className="shrink-0 text-faint" />
               )}
               <span className={`text-sm font-medium ${pass ? "text-foreground" : "text-muted"}`}>
                 {check?.label ?? GATE_FALLBACK_LABELS[id]}

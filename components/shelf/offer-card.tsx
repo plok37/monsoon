@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import type { OfferView } from "@/lib/types";
 
@@ -39,12 +40,26 @@ export function OfferCard({
         </span>
       </div>
 
-      <p className="num mt-3 text-3xl font-semibold tracking-tight text-accent">
-        {pct(offer.apy)} <span className="text-base font-normal text-muted">APY</span>
-      </p>
-      <p className="mt-1 text-sm text-muted">
-        {pct(offer.cycleYield, 2)} over {offer.dte.toFixed(0)} days
-      </p>
+      {offer.dte >= 7 ? (
+        <>
+          <p className="num mt-3 text-3xl font-semibold tracking-tight text-accent">
+            {pct(offer.apy)} <span className="text-base font-normal text-muted">APY</span>
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            {pct(offer.cycleYield, 2)} over {Math.round(offer.dte)} days
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="num mt-3 text-3xl font-semibold tracking-tight text-accent">
+            {pct(offer.cycleYield, 2)}{" "}
+            <span className="text-base font-normal text-muted">
+              over {offer.dte < 1.5 ? `${Math.round(offer.dte * 24)} hours` : `${Math.round(offer.dte)} days`}
+            </span>
+          </p>
+          <p className="mt-1 text-sm text-muted">Too short-dated for an APY to mean anything.</p>
+        </>
+      )}
 
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-line pt-4 text-sm">
         <dt className="text-faint">Strike</dt>
@@ -67,13 +82,21 @@ export function OfferCard({
           : `Worst case: you buy ETH at $${fmtUsd(offer.strikes[0], 0)} and keep the premium.`}
       </p>
 
-      <button
-        onClick={() => onSelect?.(offer)}
-        disabled={!onSelect}
-        className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-transform hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {onSelect ? "Underwrite" : "Simulated offer"}
-      </button>
+      {offer.source === "simulated" ? (
+        <button
+          disabled
+          className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink opacity-40"
+        >
+          Simulated offer
+        </button>
+      ) : (
+        <Link
+          href="/copilot"
+          className="mt-4 rounded-md bg-accent px-4 py-2 text-center text-sm font-medium text-accent-ink transition-transform hover:brightness-110 active:scale-[0.98]"
+        >
+          Underwrite in Copilot
+        </Link>
+      )}
     </motion.article>
   );
 }

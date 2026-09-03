@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "motion/react";
-import { CloudSun, CloudLightning, ArrowCounterClockwise } from "@phosphor-icons/react";
+import { CloudSunIcon, CloudLightningIcon, ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 import type { ShelfResponse, OfferView, MonthlyIndicationView } from "@/lib/types";
 import { GateChecklist } from "./gate-checklist";
 import { OfferCard } from "./offer-card";
@@ -59,9 +59,9 @@ export function ShelfView() {
         <div>
           <div className="flex items-center gap-2 text-sm text-muted">
             {open ? (
-              <CloudLightning size={18} weight="fill" className="text-accent" />
+              <CloudLightningIcon size={18} weight="fill" className="text-accent" />
             ) : (
-              <CloudSun size={18} className="text-faint" />
+              <CloudSunIcon size={18} className="text-faint" />
             )}
             {data.mode === "demo" ? `Replaying ${data.date}` : "Live on Base mainnet"}
           </div>
@@ -100,7 +100,7 @@ export function ShelfView() {
           onClick={() => setDemo((d) => !d)}
           className="flex items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm text-muted transition-colors hover:text-foreground active:scale-[0.98]"
         >
-          <ArrowCounterClockwise size={16} />
+          <ArrowCounterClockwiseIcon size={16} />
           {demo ? "Back to live market" : "Replay June 2022"}
         </button>
       </div>
@@ -194,18 +194,22 @@ function LiveClosedShelf({
           Idle USDC earns lending yield on Base while Monsoon waits. In our five-year backtest,
           this float produced most of the calm-period return, exactly like a real insurer.
         </p>
-        {spreads.length > 0 && (
-          <>
-            <p className="mt-6 text-sm font-medium text-foreground">
-              For defined-risk underwriters, these capped-loss spreads are live now:
-            </p>
-            <div className="mt-4 grid gap-4">
-              {spreads.slice(0, 2).map((o, i) => (
-                <OfferCard key={i} offer={o} index={i} />
-              ))}
-            </div>
-          </>
-        )}
+        {(() => {
+          const longSpreads = spreads.filter((s) => s.dte >= 7).sort((a, b) => b.dte - a.dte);
+          if (!longSpreads.length) return null;
+          return (
+            <>
+              <p className="mt-6 text-sm font-medium text-foreground">
+                For defined-risk underwriters, these capped-loss spreads are live now:
+              </p>
+              <div className="mt-4 grid gap-4">
+                {longSpreads.slice(0, 2).map((o, i) => (
+                  <OfferCard key={i} offer={o} index={i} />
+                ))}
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );

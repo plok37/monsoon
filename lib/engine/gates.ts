@@ -65,8 +65,8 @@ export function evaluateGates(m: MarketSnapshot, p: GateParams = DEFAULT_PARAMS)
     label: "Price has pulled back",
     pass: ddPass,
     detail: ddPass
-      ? `ETH is ${offHigh.toFixed(1)}% below its 30-day high — insurance demand is real`
-      : `ETH is only ${offHigh.toFixed(1)}% below its 30-day high (needs ≥ ${((1 - p.gateDrawdown) * 100).toFixed(0)}%) — we don't sell insurance cheap`,
+      ? `ETH is ${offHigh.toFixed(1)}% below its 30-day high. Insurance demand is real.`
+      : `ETH is only ${offHigh.toFixed(1)}% below its 30-day high (needs ${((1 - p.gateDrawdown) * 100).toFixed(0)}%+). We don't sell insurance cheap.`,
   });
 
   const ivPass = m.ivRank >= p.gateIvRank;

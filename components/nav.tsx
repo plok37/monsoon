@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
-import { CloudRain } from "@phosphor-icons/react";
+import { CloudRainIcon } from "@phosphor-icons/react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const links = [
@@ -23,7 +23,7 @@ export function Nav() {
     <header className="sticky top-0 z-40 border-b border-line bg-background/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-8 px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <CloudRain size={22} weight="fill" className="text-accent" />
+          <CloudRainIcon size={22} weight="fill" className="text-accent" />
           Monsoon
         </Link>
         <nav className="flex items-center gap-1 text-sm">

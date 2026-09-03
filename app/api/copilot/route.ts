@@ -47,8 +47,13 @@ export async function POST(req: NextRequest) {
       if (requestId) requestIds.push(requestId);
 
       if (!message.tool_calls?.length) {
+        // MiniMax is a reasoning model; drop its <think> scratchpad.
+        const reply = (message.content ?? "")
+          .replace(/<think>[\s\S]*?<\/think>/g, "")
+          .replace(/^<think>[\s\S]*/g, "")
+          .trim();
         return NextResponse.json({
-          reply: message.content ?? "",
+          reply,
           ticket: ticket ?? null,
           requestIds,
         });

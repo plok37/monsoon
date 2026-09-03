@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { PaperPlaneRight, CloudRain } from "@phosphor-icons/react";
+import { PaperPlaneRightIcon, CloudRainIcon } from "@phosphor-icons/react";
 import type { TradeTicket } from "@/lib/copilot/tools";
 import { TradeTicketCard } from "./trade-ticket";
 
@@ -90,7 +90,7 @@ export function CopilotView() {
           ) : (
             <div key={i} className="max-w-[92%] space-y-3">
               <div className="flex gap-3">
-                <CloudRain size={18} weight="fill" className="mt-1 shrink-0 text-accent" />
+                <CloudRainIcon size={18} weight="fill" className="mt-1 shrink-0 text-accent" />
                 <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.content}</p>
               </div>
               {m.ticket && <TradeTicketCard ticket={m.ticket} />}
@@ -105,7 +105,7 @@ export function CopilotView() {
 
         {busy && (
           <div className="flex items-center gap-3 text-sm text-muted">
-            <CloudRain size={18} className="animate-pulse text-accent" />
+            <CloudRainIcon size={18} className="animate-pulse text-accent" />
             Checking the market…
           </div>
         )}
@@ -136,7 +136,7 @@ export function CopilotView() {
           aria-label="Send"
           className="rounded-md bg-accent p-2 text-accent-ink transition-transform hover:brightness-110 active:scale-[0.98] disabled:opacity-40"
         >
-          <PaperPlaneRight size={16} weight="fill" />
+          <PaperPlaneRightIcon size={16} weight="fill" />
         </button>
       </form>
     </div>

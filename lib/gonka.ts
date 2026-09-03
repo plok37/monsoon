@@ -2,7 +2,10 @@
 // All Monsoon AI reasoning runs through Gonka.
 
 const BASE = process.env.GONKA_BASE_URL ?? "https://api.gonkarouter.io/v1";
-const MODEL = process.env.GONKA_MODEL ?? "moonshotai/Kimi-K2.6";
+// MiniMax responds in ~1-2s on Gonka with working tool calls; Kimi-K2.6
+// regularly hits Cloudflare's 100s timeout (524). MiniMax is a reasoning
+// model: strip <think> blocks before showing content to users.
+const MODEL = process.env.GONKA_MODEL ?? "MiniMaxAI/MiniMax-M2.7";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
@@ -49,7 +52,7 @@ export async function gonkaChat(
       messages,
       ...(tools && tools.length ? { tools, tool_choice: "auto" } : {}),
       temperature: 0.3,
-      max_tokens: 1200,
+      max_tokens: 2500,
     }),
   });
   if (!res.ok) {

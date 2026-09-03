@@ -2,7 +2,7 @@
 
 import { useAccount, useConnect } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
-import { Vault } from "@phosphor-icons/react";
+import { VaultIcon } from "@phosphor-icons/react";
 
 interface ApiPosition {
   id: string;
@@ -64,7 +64,7 @@ export function PositionView() {
   if (!isConnected) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-28 text-center">
-        <Vault size={40} className="mx-auto text-faint" />
+        <VaultIcon size={40} className="mx-auto text-faint" />
         <h1 className="mt-4 text-2xl font-semibold tracking-tight">Your underwriting book</h1>
         <p className="mx-auto mt-2 max-w-sm text-muted">
           Connect a wallet to see the options you have written, collateral locked, and premiums

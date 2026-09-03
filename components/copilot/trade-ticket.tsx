@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAccount, useConnect } from "wagmi";
-import { Lightning, CheckCircle } from "@phosphor-icons/react";
+import { LightningIcon, CheckCircleIcon } from "@phosphor-icons/react";
 import type { TradeTicket } from "@/lib/copilot/tools";
 import { executeFill } from "@/lib/thetanuts/execute";
 
@@ -29,7 +29,7 @@ export function TradeTicketCard({ ticket }: { ticket: TradeTicket }) {
   return (
     <div className="rounded-lg border border-accent-dim bg-surface p-4">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <Lightning size={16} weight="fill" className="text-accent" />
+        <LightningIcon size={16} weight="fill" className="text-accent" />
         Trade ticket · {ticket.kind === "put" ? "sell cash-secured put" : "sell put spread"}
       </div>
       <dl className="num mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
@@ -56,7 +56,7 @@ export function TradeTicketCard({ ticket }: { ticket: TradeTicket }) {
           rel="noreferrer"
           className="mt-4 flex items-center gap-2 text-sm text-accent hover:underline"
         >
-          <CheckCircle size={16} weight="fill" />
+          <CheckCircleIcon size={16} weight="fill" />
           Filled on Base mainnet. View transaction
         </a>
       ) : (
