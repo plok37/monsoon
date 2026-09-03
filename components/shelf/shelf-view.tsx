@@ -142,6 +142,10 @@ export function ShelfView() {
 
 function LiveOpenShelf({ offers }: { offers: Extract<ShelfResponse, { mode: "live" }>["offers"] }) {
   const all: OfferView[] = [...offers.monthlyRfq.map(monthlyToOffer), ...offers.putSpreads];
+  const [picked, setPicked] = useState<OfferView | null>(null);
+  const defaultM = offers.monthlyRfq[0];
+  const strike = picked?.strikes[0] ?? defaultM?.strike;
+  const premium = picked?.premiumPerContract ?? defaultM?.estSellerPremium;
   return (
     <>
       <h2 className="text-xl font-semibold tracking-tight">Open offers</h2>
@@ -150,14 +154,15 @@ function LiveOpenShelf({ offers }: { offers: Extract<ShelfResponse, { mode: "liv
       </p>
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         {all.slice(0, 9).map((o, i) => (
-          <OfferCard key={i} offer={o} index={i} />
+          <OfferCard key={i} offer={o} index={i} onSelect={o.source === "rfq" ? setPicked : undefined} />
         ))}
       </div>
-      {offers.monthlyRfq.length > 0 && (
+      {strike != null && premium != null && (
         <div className="mt-8 max-w-xl">
           <RfqUnderwrite
-            defaultStrike={offers.monthlyRfq[0].strike}
-            suggestedPremium={offers.monthlyRfq[0].estSellerPremium}
+            key={strike}
+            defaultStrike={strike}
+            suggestedPremium={premium}
           />
         </div>
       )}

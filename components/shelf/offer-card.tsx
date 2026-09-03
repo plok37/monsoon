@@ -89,6 +89,16 @@ export function OfferCard({
         >
           Simulated offer
         </button>
+      ) : offer.source === "rfq" ? (
+        <button
+          onClick={() => {
+            onSelect?.(offer);
+            document.getElementById("rfq-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+          className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-transform hover:brightness-110 active:scale-[0.98]"
+        >
+          Underwrite via auction
+        </button>
       ) : (
         <Link
           href="/copilot"
