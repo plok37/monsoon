@@ -8,6 +8,29 @@ export interface ExecResult {
   txHash: string;
 }
 
+/** Turn wallet/RPC errors into one calm sentence. */
+export function humanizeExecError(e: unknown): string {
+  const err = e as { code?: string | number; message?: string };
+  const msg = err?.message ?? String(e);
+  if (err?.code === "ACTION_REJECTED" || err?.code === 4001 || /user (rejected|denied)/i.test(msg)) {
+    return "You cancelled in the wallet. Nothing was sent; the offer is still here when you are ready.";
+  }
+  if (/insufficient funds/i.test(msg)) {
+    return "Not enough ETH on Base to pay for gas. Top up a little ETH and try again.";
+  }
+  if (/transfer amount exceeds balance|ERC20: (transfer|burn)/i.test(msg)) {
+    return "Not enough USDC on Base for this collateral amount.";
+  }
+  if (/left the book|order lookup failed/i.test(msg)) {
+    return msg;
+  }
+  if (/wallet_switchEthereumChain|chain/i.test(msg) && /reject/i.test(msg)) {
+    return "Switching to Base was declined. Monsoon trades live on Base mainnet.";
+  }
+  // Unknown: keep the first line only, never a JSON dump.
+  return `Execution failed: ${msg.split("(")[0].split("\n")[0].trim().slice(0, 160)}`;
+}
+
 interface Eip1193 {
   request(args: { method: string; params?: unknown[] }): Promise<unknown>;
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAccount, useConnect } from "wagmi";
 import { LightningIcon, CheckCircleIcon } from "@phosphor-icons/react";
 import type { TradeTicket } from "@/lib/copilot/tools";
-import { executeFill } from "@/lib/thetanuts/execute";
+import { executeFill, humanizeExecError } from "@/lib/thetanuts/execute";
 
 const usd = (n: number, dp = 2) =>
   n.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp });
@@ -22,7 +22,7 @@ export function TradeTicketCard({ ticket }: { ticket: TradeTicket }) {
       const { txHash } = await executeFill(ticket.matchKey, ticket.usdcCollateral);
       setState({ s: "done", tx: txHash });
     } catch (e) {
-      setState({ s: "error", msg: e instanceof Error ? e.message : "execution failed" });
+      setState({ s: "error", msg: humanizeExecError(e) });
     }
   }
 
@@ -73,7 +73,7 @@ export function TradeTicketCard({ ticket }: { ticket: TradeTicket }) {
                 : "Connect wallet to execute"}
           </button>
           {state.s === "error" && (
-            <p className="mt-2 text-sm text-warn">{state.msg}</p>
+            <p className="mt-2 break-words text-sm text-warn">{state.msg}</p>
           )}
         </>
       )}
