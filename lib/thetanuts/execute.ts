@@ -1,8 +1,9 @@
 // Client-side trade execution: the user's wallet signs; no server keys.
 "use client";
 
-import { BrowserProvider } from "ethers";
+import { BrowserProvider, Contract, formatUnits } from "ethers";
 import { MemoryStorageProvider, ThetanutsClient } from "@thetanuts-finance/thetanuts-client";
+import { A_BAS_USDC, USDC, withdrawReserve } from "@/lib/aave";
 
 export interface ExecResult {
   txHash: string;
@@ -94,6 +95,26 @@ export async function executeFill(
     });
   }
   const signer = await provider.getSigner();
+  const owner = await signer.getAddress();
+
+  // Reserve-aware collateral: if the wallet is short on plain USDC but the
+  // Aave reserve covers the gap, pull the shortfall out automatically so
+  // "Execute" is one gesture, not withdraw-then-retry.
+  const bal = new Contract(USDC, ["function balanceOf(address) view returns (uint256)"], provider);
+  const aBal = new Contract(A_BAS_USDC, ["function balanceOf(address) view returns (uint256)"], provider);
+  const walletUsdc = Number(formatUnits(await bal.balanceOf(owner), 6));
+  if (walletUsdc < usdcCollateral) {
+    const reserveUsdc = Number(formatUnits(await aBal.balanceOf(owner), 6));
+    const shortfall = usdcCollateral - walletUsdc;
+    if (reserveUsdc + 1e-6 < shortfall) {
+      throw new Error(
+        `Not enough USDC: $${usdcCollateral.toFixed(2)} needed, $${walletUsdc.toFixed(2)} in the wallet and $${reserveUsdc.toFixed(2)} in the reserve.`,
+      );
+    }
+    // small buffer so aToken rounding can't leave us a cent short
+    await withdrawReserve(signer, Math.min(shortfall + 0.01, reserveUsdc));
+  }
+
   // Monsoon never touches RFQ keys client-side (OptionBook fills only), but the
   // SDK requires an explicit key store in browsers; in-memory satisfies it
   // without persisting anything.

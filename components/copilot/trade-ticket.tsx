@@ -72,6 +72,11 @@ export function TradeTicketCard({ ticket }: { ticket: TradeTicket }) {
                 ? "Execute with wallet"
                 : "Connect wallet to execute"}
           </button>
+          <p className="mt-2 text-xs text-faint">
+            Your wallet will ask you to confirm each step: reserve withdrawal (only if your USDC
+            balance is short), a one-time USDC approval, then the fill. Rejecting any step stops
+            everything safely.
+          </p>
           {state.s === "error" && (
             <p className="mt-2 break-words text-sm text-warn">{state.msg}</p>
           )}

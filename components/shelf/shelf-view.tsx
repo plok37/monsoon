@@ -7,6 +7,7 @@ import { CloudSunIcon, CloudLightningIcon, ArrowCounterClockwiseIcon } from "@ph
 import type { ShelfResponse, OfferView, MonthlyIndicationView } from "@/lib/types";
 import { GateChecklist } from "./gate-checklist";
 import { OfferCard } from "./offer-card";
+import { ReservePanel } from "@/components/reserve/reserve-panel";
 
 const DEMO_DATE = "2022-06-18";
 
@@ -26,6 +27,11 @@ export function ShelfView() {
     queryKey: ["shelf", demo],
     queryFn: () => fetchShelf(demo),
     refetchInterval: demo ? false : 60_000,
+  });
+  const { data: reserveApy } = useQuery({
+    queryKey: ["reserve-apy"],
+    queryFn: async () => (await (await fetch("/api/reserve")).json()).apy as number,
+    staleTime: 10 * 60 * 1000,
   });
 
   if (isPending) return <ShelfSkeleton />;
@@ -86,8 +92,10 @@ export function ShelfView() {
             </dd>
           </div>
           <div>
-            <dt className="text-sm text-faint">Reserve floor</dt>
-            <dd className="num mt-1 text-2xl font-semibold text-accent">4.5%</dd>
+            <dt className="text-sm text-faint">Reserve yield</dt>
+            <dd className="num mt-1 text-2xl font-semibold text-accent">
+              {reserveApy != null ? `${(reserveApy * 100).toFixed(2)}%` : "…"}
+            </dd>
           </div>
         </dl>
       </motion.section>
@@ -191,9 +199,12 @@ function LiveClosedShelf({
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Meanwhile, the reserve works</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted">
-          Idle USDC earns lending yield on Base while Monsoon waits. In our five-year backtest,
-          this float produced most of the calm-period return, exactly like a real insurer.
+          In our five-year backtest, the float produced most of the calm-period return, exactly
+          like a real insurer.
         </p>
+        <div className="mt-5">
+          <ReservePanel />
+        </div>
         {(() => {
           const longSpreads = spreads.filter((s) => s.dte >= 7).sort((a, b) => b.dte - a.dte);
           if (!longSpreads.length) return null;
