@@ -31,11 +31,31 @@ const SUGGESTIONS = [
   "Sell the smallest put you can with 15 USDC",
 ];
 
+const STORAGE_KEY = "monsoon-copilot-chat";
+
 export function CopilotView() {
   const [items, setItems] = useState<ChatItem[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [restored, setRestored] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+
+  // survive navigation within the tab (sessionStorage, not localStorage:
+  // a chat about live prices should not resurrect days later)
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) setItems(JSON.parse(saved));
+    } catch {}
+    setRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(-30)));
+    } catch {}
+  }, [items, restored]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -80,7 +100,22 @@ export function CopilotView() {
 
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-3xl flex-col px-4 pb-8 pt-12">
-      <h1 className="text-3xl font-semibold tracking-tighter">Copilot</h1>
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-3xl font-semibold tracking-tighter">Copilot</h1>
+        {items.length > 0 && (
+          <button
+            onClick={() => {
+              setItems([]);
+              try {
+                sessionStorage.removeItem(STORAGE_KEY);
+              } catch {}
+            }}
+            className="text-sm text-faint transition-colors hover:text-foreground"
+          >
+            Clear chat
+          </button>
+        )}
+      </div>
       <p className="mt-2 max-w-lg text-sm leading-relaxed text-muted">
         Ask about the gates, the shelf, or a specific trade. Reasoning runs on the Gonka
         decentralized network; every answer is grounded in live Thetanuts data.
