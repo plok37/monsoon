@@ -62,7 +62,10 @@ export interface TradeTicket {
   contracts: number;
   premiumReceived: number;
   maxLoss: number | null; // null = you own ETH at strike (cash-secured put)
-  matchKey: { maker: string; nonce: string };
+  /** Economic identity of the order. MMs re-sign orders with a fresh nonce
+   *  every ~60s, so nonce-based matching goes stale before a human can click
+   *  Execute; strikes+expiry+maker survive the refresh. */
+  matchKey: { maker: string; kind: "put" | "putSpread"; strikes: number[]; expiry: number };
 }
 
 function offerLine(id: string, o: ShelfOffer): string {
@@ -123,7 +126,7 @@ export async function runTool(
     if (usdc > offer.availableUsdc) {
       return { result: `ERROR: maker budget for ${offerId} is $${offer.availableUsdc.toFixed(0)}` };
     }
-    const raw = offer.raw as { order: { maker: string; nonce: string } };
+    const raw = offer.raw as { order: { maker: string } };
     const contracts = usdc / offer.collateralPerContract;
     const premiumReceived = contracts * offer.premiumPerContract;
     const ticket: TradeTicket = {
@@ -139,7 +142,12 @@ export async function runTool(
       premiumReceived,
       maxLoss:
         offer.kind === "putSpread" ? usdc - premiumReceived : null,
-      matchKey: { maker: raw.order.maker, nonce: String(raw.order.nonce) },
+      matchKey: {
+        maker: raw.order.maker,
+        kind: offer.kind,
+        strikes: offer.strikes,
+        expiry: offer.expiry,
+      },
     };
     return {
       result: JSON.stringify({
@@ -154,16 +162,21 @@ export async function runTool(
   return { result: `ERROR: unknown tool ${name}` };
 }
 
-/** Find the raw signed order for a ticket at execution time. */
-export async function findRawOrder(matchKey: { maker: string; nonce: string }) {
+/** Find the current signed order for a ticket by economic identity.
+ *  Returns the fresh order plus its current premium (MM prices drift between
+ *  ticket creation and execution). */
+export async function findRawOrder(matchKey: TradeTicket["matchKey"]) {
   const scan = await scanBook(DEFAULT_PARAMS.haircut);
-  const all = [...scan.sellablePuts, ...scan.sellablePutSpreads];
-  const hit = all.find((o) => {
-    const r = o.raw as { order: { maker: string; nonce: string } };
+  const list = matchKey.kind === "put" ? scan.sellablePuts : scan.sellablePutSpreads;
+  const hit = list.find((o) => {
+    const r = o.raw as { order: { maker: string } };
     return (
       r.order.maker.toLowerCase() === matchKey.maker.toLowerCase() &&
-      String(r.order.nonce) === matchKey.nonce
+      o.expiry === matchKey.expiry &&
+      o.strikes.length === matchKey.strikes.length &&
+      o.strikes.every((s, i) => Math.abs(s - matchKey.strikes[i]) < 1e-6)
     );
   });
-  return hit?.raw ?? null;
+  if (!hit) return null;
+  return { order: hit.raw, premiumPerContract: hit.premiumPerContract };
 }
