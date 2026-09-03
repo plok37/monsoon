@@ -30,7 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{var t=localStorage.getItem('monsoon-theme');if(t==='light')document.documentElement.dataset.theme='light'}catch(e){}",
+              "try{var t=localStorage.getItem('monsoon-theme');if(t==='dark')document.documentElement.dataset.theme='dark'}catch(e){}",
           }}
         />
         <Providers>

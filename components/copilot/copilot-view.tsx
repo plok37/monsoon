@@ -12,6 +12,13 @@ interface ChatItem {
   requestIds?: string[];
 }
 
+/** Minimal markdown: only **bold** spans, rendered as React elements (no HTML injection). */
+function renderBold(text: string) {
+  return text.split("**").map((part, i) =>
+    i % 2 === 1 ? <strong key={i}>{part}</strong> : part,
+  );
+}
+
 const SUGGESTIONS = [
   "Why is the shelf closed right now?",
   "Show me the shelf and explain the safest offer",
@@ -91,7 +98,7 @@ export function CopilotView() {
             <div key={i} className="max-w-[92%] space-y-3">
               <div className="flex gap-3">
                 <CloudRainIcon size={18} weight="fill" className="mt-1 shrink-0 text-accent" />
-                <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.content}</p>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed">{renderBold(m.content)}</p>
               </div>
               {m.ticket && <TradeTicketCard ticket={m.ticket} />}
               {m.requestIds && m.requestIds.length > 0 && (
