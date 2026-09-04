@@ -29,6 +29,21 @@ interface RfqStatus {
   bestPricePerContract: number; // WETH per contract for WETH-collateral auctions
 }
 
+function Field({ label, hint, unit, children }: { label: string; hint?: string; unit?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-medium">{label}</span>
+        {unit && <span className="text-xs text-faint">{unit}</span>}
+      </div>
+      <div className="mt-1.5 rounded-md border border-line bg-background px-3 py-2.5 transition-colors focus-within:border-accent-dim">
+        {children}
+      </div>
+      {hint && <p className="mt-1 text-xs text-faint">{hint}</p>}
+    </div>
+  );
+}
+
 export function CoveredCallPanel({ spot, suggestedCallUsd }: { spot: number; suggestedCallUsd: number | null }) {
   const { address } = useAccount();
   const [strike, setStrike] = useState(String(Math.round((spot * 1.1) / 50) * 50));
@@ -150,41 +165,42 @@ export function CoveredCallPanel({ spot, suggestedCallUsd }: { spot: number; sug
 
       {!ticket || done ? (
         <>
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <label className="text-xs text-faint">
-              Strike (USD)
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <Field label="Strike" hint="the price a buyer may purchase your ETH at" unit="USD">
               <input value={strike} onChange={(e) => setStrike(e.target.value)} inputMode="decimal"
-                className="num mt-1 w-full rounded-md border border-line bg-background px-3 py-2 text-sm outline-none focus:border-accent-dim" />
-            </label>
-            <label className="text-xs text-faint">
-              WETH to cover
-              <input value={contracts} onChange={(e) => setContracts(e.target.value)} inputMode="decimal" placeholder={wethBalance ? wethBalance.toFixed(4) : "0.01"}
-                className="num mt-1 w-full rounded-md border border-line bg-background px-3 py-2 text-sm outline-none focus:border-accent-dim" />
-            </label>
-            <label className="text-xs text-faint">
-              Your cost basis (USD)
+                className="num w-full bg-transparent text-base outline-none" />
+            </Field>
+            <Field label="WETH to cover" hint={wethBalance != null ? `${wethBalance.toFixed(4)} available` : "locked only if a bid wins"} unit="WETH">
+              <input value={contracts} onChange={(e) => setContracts(e.target.value)} inputMode="decimal" placeholder={wethBalance ? Math.min(wethBalance, 0.05).toFixed(4) : "0.01"}
+                className="num w-full bg-transparent text-base outline-none placeholder:text-faint" />
+            </Field>
+            <Field label="Your cost basis" hint="what you paid per ETH; guards the strike" unit="USD">
               <input value={basis} onChange={(e) => setBasis(e.target.value)} inputMode="decimal" placeholder="optional"
-                className="num mt-1 w-full rounded-md border border-line bg-background px-3 py-2 text-sm outline-none focus:border-accent-dim" />
-            </label>
-            <label className="text-xs text-faint">
-              Min premium (USD/contract)
+                className="num w-full bg-transparent text-base outline-none placeholder:text-faint" />
+            </Field>
+            <Field label="Minimum premium" hint={suggestedCallUsd != null ? `per contract; buyers pay ~$${usd(suggestedCallUsd)} nearby` : "per contract; bids below it never win"} unit="USD">
               <input value={minPremiumUsd} onChange={(e) => setMinPremiumUsd(e.target.value)} inputMode="decimal"
-                className="num mt-1 w-full rounded-md border border-line bg-background px-3 py-2 text-sm outline-none focus:border-accent-dim" />
-            </label>
+                className="num w-full bg-transparent text-base outline-none" />
+            </Field>
           </div>
-          {suggestedCallUsd != null && (
-            <p className="mt-2 text-xs text-faint">
-              Buyers currently pay ~${usd(suggestedCallUsd)}/contract for nearby calls.
+
+          {Number(contracts) > 0 && k > 0 && Number(minPremiumUsd) > 0 && (
+            <p className="mt-4 rounded-md bg-surface-raised px-3 py-2 text-sm text-muted">
+              Offering <span className="num text-foreground">{Number(contracts).toFixed(4)}</span> ×{" "}
+              <span className="num text-foreground">${usd(k, 0)}</span> call · at least{" "}
+              <span className="num text-accent">${usd(Number(minPremiumUsd) * Number(contracts))}</span> total premium ·
+              if called away you receive <span className="num text-foreground">${usd(k * Number(contracts))}</span>
             </p>
           )}
+
           {basisViolated && (
-            <label className="mt-2 flex items-center gap-2 text-xs text-warn">
-              <input type="checkbox" checked={overrideBasis} onChange={(e) => setOverrideBasis(e.target.checked)} />
-              I understand this strike is below my cost basis and locks in a loss if called away
+            <label className="mt-3 flex items-start gap-2 text-sm text-warn">
+              <input type="checkbox" checked={overrideBasis} onChange={(e) => setOverrideBasis(e.target.checked)} className="mt-0.5" />
+              This strike is below my cost basis of ${usd(b, 0)}; being called away locks in a loss, and I want to proceed anyway.
             </label>
           )}
           <button onClick={post} disabled={busy !== null || !address}
-            className="mt-3 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-transform hover:brightness-110 active:scale-[0.98] disabled:opacity-50">
+            className="mt-4 rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-accent-ink transition-transform hover:brightness-110 active:scale-[0.98] disabled:opacity-50">
             {busy === "post" ? "Confirm in wallet…" : "Start 10-minute auction"}
           </button>
           {done && <p className="mt-3 break-words text-sm text-accent">{done}</p>}

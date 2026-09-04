@@ -14,6 +14,21 @@ const ACTIVE_KEY = "monsoon-rfq-active";
 const usd = (n: number, dp = 2) =>
   n.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp });
 
+function Field({ label, hint, unit, children }: { label: string; hint?: string; unit?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-medium">{label}</span>
+        {unit && <span className="text-xs text-faint">{unit}</span>}
+      </div>
+      <div className="mt-1.5 rounded-md border border-line bg-background px-3 py-2.5 transition-colors focus-within:border-accent-dim">
+        {children}
+      </div>
+      {hint && <p className="mt-1 text-xs text-faint">{hint}</p>}
+    </div>
+  );
+}
+
 interface RfqStatus {
   phase: "auction" | "settleable" | "no_bids" | "settled" | "cancelled";
   offerEndTimestamp: number;
@@ -126,28 +141,27 @@ export function RfqUnderwrite({
 
       {!ticket || done ? (
         <>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <label className="text-xs text-faint">
-              Strike (USD)
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            <Field label="Strike" hint="the price you would buy ETH at if assigned" unit="USD">
               <input value={strike} onChange={(e) => setStrike(e.target.value)} inputMode="decimal"
-                className="num mt-1 w-full rounded-md border border-line bg-background px-3 py-2 text-sm outline-none focus:border-accent-dim" />
-            </label>
-            <label className="text-xs text-faint">
-              Collateral (USDC)
+                className="num w-full bg-transparent text-base outline-none" />
+            </Field>
+            <Field label="Collateral" hint="locked only if a bid wins and you settle" unit="USDC">
               <input value={usdcAmount} onChange={(e) => setUsdcAmount(e.target.value)} inputMode="decimal"
-                className="num mt-1 w-full rounded-md border border-line bg-background px-3 py-2 text-sm outline-none focus:border-accent-dim" />
-            </label>
-            <label className="text-xs text-faint">
-              Min premium / contract
+                className="num w-full bg-transparent text-base outline-none" />
+            </Field>
+            <Field label="Minimum premium" hint={`per contract; buyers pay ~$${usd(suggestedPremium)} at nearby strikes`} unit="USD">
               <input value={reserve} onChange={(e) => setReserve(e.target.value)} inputMode="decimal"
-                className="num mt-1 w-full rounded-md border border-line bg-background px-3 py-2 text-sm outline-none focus:border-accent-dim" />
-            </label>
+                className="num w-full bg-transparent text-base outline-none" />
+            </Field>
           </div>
-          <p className="mt-2 text-xs text-faint">
-            {Number(usdcAmount) > 0 && Number(strike) > 0
-              ? `${(Number(usdcAmount) / Number(strike)).toFixed(4)} contracts. Live MM asks suggest ~$${usd(suggestedPremium)}/contract is achievable.`
-              : "Fractional contracts are fine."}
-          </p>
+          {Number(usdcAmount) > 0 && Number(strike) > 0 && Number(reserve) > 0 && (
+            <p className="mt-4 rounded-md bg-surface-raised px-3 py-2 text-sm text-muted">
+              Offering to insure <span className="num text-foreground">{(Number(usdcAmount) / Number(strike)).toFixed(4)}</span> ETH
+              at <span className="num text-foreground">${usd(Number(strike), 0)}</span> · at least{" "}
+              <span className="num text-accent">${usd((Number(usdcAmount) / Number(strike)) * Number(reserve))}</span> total premium
+            </p>
+          )}
           {!isConnected ? (
             <button onClick={() => connect({ connector: connectors[0] })}
               className="mt-3 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition-transform hover:brightness-110 active:scale-[0.98]">
