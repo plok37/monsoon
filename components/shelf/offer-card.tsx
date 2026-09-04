@@ -36,7 +36,11 @@ export function OfferCard({
           {isSpread ? "Defined-risk put spread" : "Cash-secured put"}
         </h3>
         <span className="rounded bg-surface-raised px-2 py-0.5 text-xs text-faint">
-          {offer.source === "simulated" ? "Simulated" : offer.source === "book" ? "Fill now" : "30d RFQ"}
+          {offer.source === "simulated"
+            ? "Simulated"
+            : offer.source === "book"
+              ? "Fill now"
+              : `${Math.round(offer.dte)}d quote`}
         </span>
       </div>
 
