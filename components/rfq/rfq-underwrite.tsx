@@ -125,19 +125,30 @@ export function RfqUnderwrite({
 
   return (
     <div id="rfq-panel" className="rounded-lg border border-line bg-surface p-5">
-      <h3 className="flex items-center gap-2 text-sm font-medium">
-        <GavelIcon size={16} weight="fill" className="text-accent" />
-        Underwrite for 30 days (live RFQ auction)
-      </h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-base font-semibold tracking-tight">
+          <GavelIcon size={18} weight="fill" className="text-accent" />
+          Underwrite for 30 days
+        </h3>
+        <span className="rounded bg-surface-raised px-2 py-0.5 text-xs text-faint">sealed-bid auction</span>
+      </div>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        Post a sealed-bid auction: market makers compete to buy your put, expiring{" "}
-        <span className="num text-foreground">
-          {new Date(nextPhysicalExpiry(30) * 1000).toUTCString().slice(0, 16)}
-        </span>
-        . Physically settled: if assigned, you receive real ETH at your strike, ready for the
-        covered-call phase. Your USDC is pulled only if a bid meets your minimum premium and you
-        settle. No bids means nothing happens.
+        Market makers compete for 10 minutes to buy your put. You sell only if a bid clears your minimum.
       </p>
+      <dl className="mt-4 grid gap-3 rounded-md bg-surface-raised px-4 py-3 text-sm sm:grid-cols-3">
+        <div>
+          <dt className="text-xs text-faint">Expires</dt>
+          <dd className="num mt-0.5">{new Date(nextPhysicalExpiry(30) * 1000).toUTCString().slice(0, 16)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-faint">Settlement</dt>
+          <dd className="mt-0.5">physical: assignment delivers real ETH</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-faint">Until you settle</dt>
+          <dd className="mt-0.5">nothing is locked; no bids, no trade</dd>
+        </div>
+      </dl>
 
       {!ticket || done ? (
         <>

@@ -149,19 +149,31 @@ export function CoveredCallPanel({ spot, suggestedCallUsd }: { spot: number; sug
 
   return (
     <div className="rounded-lg border border-line bg-surface p-5">
-      <h3 className="flex items-center gap-2 text-sm font-medium">
-        <PhoneOutgoingIcon size={16} weight="fill" className="text-accent" />
-        Rent out your ETH (covered call, 30d auction)
-      </h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-base font-semibold tracking-tight">
+          <PhoneOutgoingIcon size={18} weight="fill" className="text-accent" />
+          Rent out your ETH
+        </h3>
+        <span className="rounded bg-surface-raised px-2 py-0.5 text-xs text-faint">covered call · sealed-bid auction</span>
+      </div>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        The wheel&apos;s second leg. Market makers bid to buy a call on WETH you hold; expiring{" "}
-        <span className="num text-foreground">{new Date(nextPhysicalExpiry(30) * 1000).toUTCString().slice(0, 16)}</span>.
-        If ETH ends above your strike, they pay the strike in USDC and take the WETH; otherwise you
-        keep the WETH and the premium. Your WETH moves only when you settle a winning bid.
+        The wheel&apos;s second leg: market makers compete for 10 minutes to buy a call on WETH you hold.
+        You keep the premium either way; the WETH is sold at your strike only if ETH ends above it.
       </p>
-      <p className="num mt-2 text-xs text-faint">
-        WETH available: {wethBalance != null ? wethBalance.toFixed(4) : "…"}
-      </p>
+      <dl className="mt-4 grid gap-3 rounded-md bg-surface-raised px-4 py-3 text-sm sm:grid-cols-3">
+        <div>
+          <dt className="text-xs text-faint">Expires</dt>
+          <dd className="num mt-0.5">{new Date(nextPhysicalExpiry(30) * 1000).toUTCString().slice(0, 16)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-faint">If called away</dt>
+          <dd className="mt-0.5">buyer pays your strike in USDC</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-faint">Your WETH</dt>
+          <dd className="num mt-0.5">{wethBalance != null ? `${wethBalance.toFixed(4)} available` : "connect to check"}; moves only when you settle</dd>
+        </div>
+      </dl>
 
       {!ticket || done ? (
         <>
