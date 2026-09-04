@@ -109,7 +109,7 @@ export function RfqUnderwrite({
   const secondsLeft = status ? Math.max(0, status.offerEndTimestamp - Math.floor(Date.now() / 1000)) : 0;
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-5">
+    <div id="rfq-panel" className="rounded-lg border border-line bg-surface p-5">
       <h3 className="flex items-center gap-2 text-sm font-medium">
         <GavelIcon size={16} weight="fill" className="text-accent" />
         Underwrite for 30 days (live RFQ auction)
