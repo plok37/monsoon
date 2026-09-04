@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useAccount, useConnect } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { GavelIcon } from "@phosphor-icons/react";
-import { createSellPutRfq, settleRfq, cancelRfq, type RfqTicket } from "@/lib/thetanuts/rfq";
+import { createSellPutRfq, settleRfq, cancelRfq, nextPhysicalExpiry, type RfqTicket } from "@/lib/thetanuts/rfq";
 import { humanizeExecError } from "@/lib/thetanuts/execute";
 
 const ACTIVE_KEY = "monsoon-rfq-active";
@@ -115,9 +115,13 @@ export function RfqUnderwrite({
         Underwrite for 30 days (live RFQ auction)
       </h3>
       <p className="mt-2 text-sm leading-relaxed text-muted">
-        Post a sealed-bid auction: market makers compete to buy your 30-day put. Your USDC is
-        pulled only if a bid meets your minimum premium and you settle. No bids means nothing
-        happens.
+        Post a sealed-bid auction: market makers compete to buy your put, expiring{" "}
+        <span className="num text-foreground">
+          {new Date(nextPhysicalExpiry(30) * 1000).toUTCString().slice(0, 16)}
+        </span>
+        . Physically settled: if assigned, you receive real ETH at your strike, ready for the
+        covered-call phase. Your USDC is pulled only if a bid meets your minimum premium and you
+        settle. No bids means nothing happens.
       </p>
 
       {!ticket || done ? (

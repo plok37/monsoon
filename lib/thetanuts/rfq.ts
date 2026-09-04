@@ -43,6 +43,17 @@ export interface RfqTicket {
   txHash: string;
 }
 
+/** First Friday 08:00 UTC at least `minDays` away (physical options expire
+ *  only at that moment). For a 30-day request this lands 30-36 days out. */
+export function nextPhysicalExpiry(minDays: number): number {
+  const d = new Date(Date.now() + minDays * 86400_000);
+  d.setUTCHours(8, 0, 0, 0);
+  while (d.getUTCDay() !== 5 || d.getTime() <= Date.now() + minDays * 86400_000) {
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return Math.floor(d.getTime() / 1000);
+}
+
 export async function createSellPutRfq(params: {
   strike: number;
   collateralUsdc: number;
@@ -53,7 +64,7 @@ export async function createSellPutRfq(params: {
   const client = await getBrowserClient();
   const requester = (await client.signer!.getAddress()) as `0x${string}`;
   const contracts = params.collateralUsdc / params.strike;
-  const expiryTs = Math.floor(Date.now() / 1000) + params.tenorDays * 86400;
+  const expiryTs = nextPhysicalExpiry(params.tenorDays);
 
   // approve collateral to the OptionFactory now; it is pulled only at settlement
   const factory = client.chainConfig.contracts.optionFactory;
@@ -70,14 +81,18 @@ export async function createSellPutRfq(params: {
   }
 
   const keyPair = await client.rfqKeys.getOrCreateKeyPair();
-  const request = client.optionFactory.buildRFQRequest({
+  // PHYSICAL settlement: if assigned, the buyer delivers WETH and takes the
+  // strike in USDC - the seller ends up holding real ETH, which is what lets
+  // the wheel's covered-call phase exist at all.
+  const request = client.optionFactory.buildPhysicalOptionRFQ({
     requester,
     underlying: "ETH",
     optionType: "PUT",
-    strikes: params.strike,
+    strike: params.strike,
     expiry: expiryTs,
     numContracts: contracts,
     isLong: false,
+    deliveryToken: client.chainConfig.tokens.WETH.address as `0x${string}`,
     offerDeadlineMinutes: params.auctionMinutes,
     collateralToken: "USDC",
     reservePrice: params.reservePremiumPerContract,
