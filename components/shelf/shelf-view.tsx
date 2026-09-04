@@ -25,12 +25,16 @@ async function fetchShelf(demo: boolean, force = false): Promise<ShelfResponse> 
 
 export function ShelfView() {
   const [demo, setDemo] = useState(false);
-  const [force, setForce] = useState(false);
-  useEffect(() => {
+  // read synchronously so the first fetch already carries the flag
+  // (server prerender has no window; there it stays false behind the skeleton)
+  const [force] = useState(() => {
     try {
-      setForce(new URLSearchParams(window.location.search).get("force") === "open");
-    } catch {}
-  }, []);
+      return typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("force") === "open";
+    } catch {
+      return false;
+    }
+  });
   const reduce = useReducedMotion();
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ["shelf", demo, force],
