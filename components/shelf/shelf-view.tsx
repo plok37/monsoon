@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "motion/react";
 import { CloudSunIcon, CloudLightningIcon, ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
@@ -158,7 +158,12 @@ export function ShelfView() {
 }
 
 function LiveOpenShelf({ offers }: { offers: Extract<ShelfResponse, { mode: "live" }>["offers"] }) {
-  const all: OfferView[] = [...offers.monthlyRfq.map(monthlyToOffer), ...offers.putSpreads];
+  // keep the grid mixed: the 30d strategy offers lead, defined-risk spreads
+  // keep their place even when MMs quote many monthly strikes
+  const all: OfferView[] = [
+    ...offers.monthlyRfq.slice(0, 6).map(monthlyToOffer),
+    ...offers.putSpreads.filter((s) => s.dte >= 7).slice(0, 3),
+  ];
   const [picked, setPicked] = useState<OfferView | null>(null);
   const defaultM = offers.monthlyRfq[0];
   const strike = picked?.strikes[0] ?? defaultM?.strike;
