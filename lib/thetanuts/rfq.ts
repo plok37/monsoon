@@ -122,6 +122,77 @@ export async function createSellPutRfq(params: {
   };
 }
 
+/** Covered call: sell a physically-settled CALL against WETH the user holds.
+ *  Collateral = 1 WETH per contract (approved here, pulled only at settlement).
+ *  If exercised, the buyer pays strike x contracts in USDC and takes the WETH.
+ *  reservePremiumWethPerContract is the minimum premium in WETH per contract
+ *  (call premiums are quoted in the collateral token). */
+export async function createCoveredCallRfq(params: {
+  strike: number;
+  contracts: number; // WETH covered (fractional fine)
+  reservePremiumWethPerContract: number;
+  tenorDays: number;
+  auctionMinutes: number;
+}): Promise<RfqTicket> {
+  const client = await getBrowserClient();
+  const requester = (await client.signer!.getAddress()) as `0x${string}`;
+  const expiryTs = nextPhysicalExpiry(params.tenorDays);
+
+  const factory = client.chainConfig.contracts.optionFactory;
+  if (!factory) throw new Error("OptionFactory is not deployed on this chain");
+  const weth = client.chainConfig.tokens.WETH.address;
+  const amount = BigInt(Math.ceil(params.contracts * 1e18));
+  const wethC = new Contract(
+    weth,
+    ["function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)", "function balanceOf(address) view returns (uint256)"],
+    client.signer,
+  );
+  if ((await wethC.balanceOf(requester)) < amount) {
+    throw new Error(`Not enough WETH: covering ${params.contracts} contracts needs ${params.contracts} WETH`);
+  }
+  if ((await wethC.allowance(requester, factory)) < amount) {
+    const tx = await wethC.approve(factory, amount);
+    await tx.wait();
+  }
+
+  const keyPair = await client.rfqKeys.getOrCreateKeyPair();
+  const request = client.optionFactory.buildPhysicalOptionRFQ({
+    requester,
+    underlying: "ETH",
+    optionType: "CALL",
+    strike: params.strike,
+    expiry: expiryTs,
+    numContracts: params.contracts,
+    isLong: false,
+    deliveryToken: client.chainConfig.tokens.USDC.address as `0x${string}`,
+    offerDeadlineMinutes: params.auctionMinutes,
+    collateralToken: "WETH",
+    reservePrice: params.reservePremiumWethPerContract,
+    requesterPublicKey: keyPair.compressedPublicKey,
+  });
+
+  const receipt = await client.optionFactory.requestForQuotation(request);
+  const events = await client.events.getQuotationRequestedEvents({
+    fromBlock: receipt.blockNumber,
+    toBlock: receipt.blockNumber,
+  });
+  const mine =
+    events.find((e) => e.requester.toLowerCase() === requester.toLowerCase() && e.transactionHash === receipt.hash) ??
+    events.find((e) => e.requester.toLowerCase() === requester.toLowerCase());
+  if (!mine) throw new Error("Auction posted but its id was not found in the block events; check /position later");
+
+  return {
+    quotationId: mine.quotationId.toString(),
+    strike: params.strike,
+    contracts: params.contracts,
+    collateralUsdc: 0,
+    reservePremiumPerContract: params.reservePremiumWethPerContract,
+    expiryTs,
+    offerEndTs: Math.floor(Date.now() / 1000) + params.auctionMinutes * 60,
+    txHash: receipt.hash,
+  };
+}
+
 export async function settleRfq(quotationId: string): Promise<string> {
   const client = await getBrowserClient();
   const receipt = await client.optionFactory.settleQuotation(BigInt(quotationId));

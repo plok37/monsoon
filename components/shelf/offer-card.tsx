@@ -19,9 +19,17 @@ export function OfferCard({
 }) {
   const reduce = useReducedMotion();
   const isSpread = offer.kind === "putSpread";
+  const isBuy = offer.source === "book";
   const strikeLabel = isSpread
     ? `$${fmtUsd(offer.strikes[0], 0)} / $${fmtUsd(offer.strikes[1], 0)}`
     : `$${fmtUsd(offer.strikes[0], 0)}`;
+  const title = isBuy
+    ? offer.kind === "put"
+      ? "Protective put"
+      : offer.kind === "call"
+        ? "Call"
+        : "Put spread"
+    : "Cash-secured put";
 
   return (
     <motion.article
@@ -32,19 +40,27 @@ export function OfferCard({
       className="flex flex-col rounded-lg border border-line bg-surface p-5"
     >
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-medium text-muted">
-          {isSpread ? "Defined-risk put spread" : "Cash-secured put"}
-        </h3>
+        <h3 className="text-sm font-medium text-muted">{title}</h3>
         <span className="rounded bg-surface-raised px-2 py-0.5 text-xs text-faint">
           {offer.source === "simulated"
             ? "Simulated"
-            : offer.source === "book"
-              ? "Fill now"
+            : isBuy
+              ? "Buy now"
               : `${Math.round(offer.dte)}d quote`}
         </span>
       </div>
 
-      {offer.dte >= 7 ? (
+      {isBuy ? (
+        <>
+          <p className="num mt-3 text-3xl font-semibold tracking-tight text-accent">
+            ${fmtUsd(offer.premiumPerContract)}{" "}
+            <span className="text-base font-normal text-muted">/ contract</span>
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            covers {offer.dte < 1.5 ? `${Math.round(offer.dte * 24)} hours` : `${Math.round(offer.dte)} days`}
+          </p>
+        </>
+      ) : offer.dte >= 7 ? (
         <>
           <p className="num mt-3 text-3xl font-semibold tracking-tight text-accent">
             {pct(offer.apy)} <span className="text-base font-normal text-muted">APY</span>
@@ -68,22 +84,28 @@ export function OfferCard({
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-line pt-4 text-sm">
         <dt className="text-faint">Strike</dt>
         <dd className="num text-right">{strikeLabel}</dd>
-        <dt className="text-faint">Premium / contract</dt>
+        <dt className="text-faint">{isBuy ? "Cost / contract" : "Premium / contract"}</dt>
         <dd className="num text-right">${fmtUsd(offer.premiumPerContract)}</dd>
-        <dt className="text-faint">Locked / contract</dt>
-        <dd className="num text-right">${fmtUsd(offer.collateralPerContract, 0)}</dd>
+        <dt className="text-faint">{isBuy ? "Max payout / contract" : "Locked / contract"}</dt>
+        <dd className="num text-right">
+          {offer.kind === "call" ? "uncapped" : `$${fmtUsd(offer.collateralPerContract, 0)}`}
+        </dd>
         {offer.assignProb != null && (
           <>
-            <dt className="text-faint">Assignment odds</dt>
+            <dt className="text-faint">{isBuy ? "Payout odds" : "Assignment odds"}</dt>
             <dd className="num text-right">{pct(offer.assignProb)}</dd>
           </>
         )}
       </dl>
 
       <p className="mt-3 text-sm leading-relaxed text-muted">
-        {isSpread
-          ? `Max loss is capped at $${fmtUsd(offer.collateralPerContract - offer.premiumPerContract)} per contract.`
-          : `Worst case: you buy ETH at $${fmtUsd(offer.strikes[0], 0)} and keep the premium.`}
+        {isBuy
+          ? offer.kind === "call"
+            ? `Pays out if ETH ends above $${fmtUsd(offer.strikes[0], 0)} at expiry. Max loss: the premium.`
+            : `Pays out if ETH ends below $${fmtUsd(offer.strikes[0], 0)} at expiry. Max loss: the premium.`
+          : isSpread
+            ? `Max loss is capped at $${fmtUsd(offer.collateralPerContract - offer.premiumPerContract)} per contract.`
+            : `Worst case: you buy ETH at $${fmtUsd(offer.strikes[0], 0)} and keep the premium.`}
       </p>
 
       {offer.source === "simulated" ? (
@@ -108,7 +130,7 @@ export function OfferCard({
           href="/copilot"
           className="mt-4 rounded-md bg-accent px-4 py-2 text-center text-sm font-medium text-accent-ink transition-transform hover:brightness-110 active:scale-[0.98]"
         >
-          Underwrite in Copilot
+          Buy in Copilot
         </Link>
       )}
     </motion.article>

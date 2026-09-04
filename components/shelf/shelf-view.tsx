@@ -150,7 +150,7 @@ export function ShelfView() {
         ) : open ? (
           <LiveOpenShelf offers={data.offers} />
         ) : (
-          <LiveClosedShelf monthly={data.offers.monthlyRfq} spreads={data.offers.putSpreads} />
+          <LiveClosedShelf monthly={data.offers.monthlyRfq} protection={data.offers.protectionPuts} />
         )}
       </section>
     </div>
@@ -158,12 +158,8 @@ export function ShelfView() {
 }
 
 function LiveOpenShelf({ offers }: { offers: Extract<ShelfResponse, { mode: "live" }>["offers"] }) {
-  // keep the grid mixed: the 30d strategy offers lead, defined-risk spreads
-  // keep their place even when MMs quote many monthly strikes
-  const all: OfferView[] = [
-    ...offers.monthlyRfq.slice(0, 6).map(monthlyToOffer),
-    ...offers.putSpreads.filter((s) => s.dte >= 7).slice(0, 3),
-  ];
+  // the open shelf is the underwriting moment: monthly quotes feed the auction
+  const all: OfferView[] = offers.monthlyRfq.slice(0, 9).map(monthlyToOffer);
   const [picked, setPicked] = useState<OfferView | null>(null);
   const defaultM = offers.monthlyRfq[0];
   const strike = picked?.strikes[0] ?? defaultM?.strike;
@@ -194,10 +190,10 @@ function LiveOpenShelf({ offers }: { offers: Extract<ShelfResponse, { mode: "liv
 
 function LiveClosedShelf({
   monthly,
-  spreads,
+  protection,
 }: {
   monthly: MonthlyIndicationView[];
-  spreads: OfferView[];
+  protection: OfferView[];
 }) {
   return (
     <div className="grid gap-12 lg:grid-cols-2">
@@ -250,15 +246,15 @@ function LiveClosedShelf({
           <ReservePanel />
         </div>
         {(() => {
-          const longSpreads = spreads.filter((s) => s.dte >= 7).sort((a, b) => b.dte - a.dte);
-          if (!longSpreads.length) return null;
+          const picks = protection.filter((o) => o.dte >= 5).slice(0, 2);
+          if (!picks.length) return null;
           return (
             <>
               <p className="mt-6 text-sm font-medium text-foreground">
-                For defined-risk underwriters, these capped-loss spreads are live now:
+                Holding ETH and want cover instead? Protection is buyable instantly:
               </p>
               <div className="mt-4 grid gap-4">
-                {longSpreads.slice(0, 2).map((o, i) => (
+                {picks.map((o, i) => (
                   <OfferCard key={i} offer={o} index={i} />
                 ))}
               </div>

@@ -1,4 +1,5 @@
-// Client-side trade execution: the user's wallet signs; no server keys.
+// Client-side trade execution (BUY: usdcSpend is the premium paid; the
+// OptionBook taker is always the buyer). The user's wallet signs; no server keys.
 "use client";
 
 import { BrowserProvider, Contract, formatUnits } from "ethers";
@@ -59,14 +60,14 @@ function reviveOrder(wire: any): any {
 
 export interface OrderMatchKey {
   maker: string;
-  kind: "put" | "putSpread";
+  kind: "put" | "putSpread" | "call";
   strikes: number[];
   expiry: number;
 }
 
 export async function executeFill(
   matchKey: OrderMatchKey,
-  usdcCollateral: number,
+  usdcSpend: number,
 ): Promise<ExecResult> {
   const eth = (window as unknown as { ethereum?: Eip1193 }).ethereum;
   if (!eth) throw new Error("No browser wallet found");
@@ -103,12 +104,12 @@ export async function executeFill(
   const bal = new Contract(USDC, ["function balanceOf(address) view returns (uint256)"], provider);
   const aBal = new Contract(A_BAS_USDC, ["function balanceOf(address) view returns (uint256)"], provider);
   const walletUsdc = Number(formatUnits(await bal.balanceOf(owner), 6));
-  if (walletUsdc < usdcCollateral) {
+  if (walletUsdc < usdcSpend) {
     const reserveUsdc = Number(formatUnits(await aBal.balanceOf(owner), 6));
-    const shortfall = usdcCollateral - walletUsdc;
+    const shortfall = usdcSpend - walletUsdc;
     if (reserveUsdc + 1e-6 < shortfall) {
       throw new Error(
-        `Not enough USDC: $${usdcCollateral.toFixed(2)} needed, $${walletUsdc.toFixed(2)} in the wallet and $${reserveUsdc.toFixed(2)} in the reserve.`,
+        `Not enough USDC: $${usdcSpend.toFixed(2)} needed, $${walletUsdc.toFixed(2)} in the wallet and $${reserveUsdc.toFixed(2)} in the reserve.`,
       );
     }
     // small buffer so aToken rounding can't leave us a cent short
@@ -125,7 +126,7 @@ export async function executeFill(
     keyStorageProvider: new MemoryStorageProvider(),
   });
 
-  const usdcAmount = BigInt(Math.round(usdcCollateral * 1e6));
+  const usdcAmount = BigInt(Math.round(usdcSpend * 1e6));
 
   const optionBook = client.chainConfig.contracts.optionBook;
   if (!optionBook) throw new Error("OptionBook is not deployed on this chain");

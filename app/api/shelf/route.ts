@@ -56,14 +56,33 @@ export async function GET(req: NextRequest) {
     spot: book.spot,
     fetchedAt: book.fetchedAt,
     offers: {
-      directPuts: book.sellablePuts.map(stripRaw),
-      putSpreads: book.sellablePutSpreads.map(stripRaw),
+      protectionPuts: book.protectionPuts.map(toView),
+      protectionSpreads: book.protectionSpreads.map(toView),
+      calls: book.buyableCalls.map(toView),
       monthlyRfq: book.monthlyIndications,
     },
   });
 }
 
-function stripRaw<T extends { raw?: unknown }>(o: T): Omit<T, "raw"> {
-  const { raw: _raw, ...rest } = o;
-  return rest;
+// Buyable offers: "yield" fields are meaningless to a premium payer; carry the
+// cost and the max payout instead (collateralPerContract doubles as payout cap).
+function toView(o: {
+  kind: string; dte: number; expiry: number; strikes: number[];
+  premiumPerContract: number; maxPayoutPerContract: number;
+  assignProb: number | null; iv: number | null; maxContracts: number;
+}) {
+  return {
+    kind: o.kind,
+    source: "book" as const,
+    dte: o.dte,
+    expiry: o.expiry,
+    strikes: o.strikes,
+    premiumPerContract: o.premiumPerContract,
+    collateralPerContract: o.maxPayoutPerContract,
+    cycleYield: 0,
+    apy: 0,
+    assignProb: o.assignProb,
+    iv: o.iv,
+    maxContracts: o.maxContracts,
+  };
 }

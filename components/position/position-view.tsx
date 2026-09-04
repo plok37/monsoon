@@ -3,6 +3,8 @@
 import { useAccount, useConnect } from "wagmi";
 import { useQuery } from "@tanstack/react-query";
 import { VaultIcon } from "@phosphor-icons/react";
+import { CoveredCallPanel } from "./covered-call-panel";
+import type { ShelfLive } from "@/lib/types";
 
 interface ApiPosition {
   id: string;
@@ -50,6 +52,16 @@ export function PositionView() {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
 
+  const { data: shelf } = useQuery({
+    queryKey: ["shelf", false, false],
+    queryFn: async () => {
+      const res = await fetch("/api/shelf");
+      if (!res.ok) throw new Error("shelf api failed");
+      return (await res.json()) as ShelfLive;
+    },
+    staleTime: 60_000,
+  });
+
   const { data, isPending, isError } = useQuery({
     queryKey: ["position", address],
     queryFn: async () => {
@@ -84,6 +96,18 @@ export function PositionView() {
     <div className="mx-auto max-w-6xl px-4 pb-20 pt-16">
       <h1 className="text-3xl font-semibold tracking-tighter md:text-4xl">Your underwriting book</h1>
       <p className="num mt-2 text-sm text-faint">{address}</p>
+
+      {shelf && (
+        <div className="mt-8 max-w-2xl">
+          <CoveredCallPanel
+            spot={shelf.spot}
+            suggestedCallUsd={(() => {
+              const c = shelf.offers.calls.filter((o) => o.dte >= 5 && o.strikes[0] > shelf.spot);
+              return c.length ? c[0].premiumPerContract : null;
+            })()}
+          />
+        </div>
+      )}
 
       {isPending && (
         <div className="mt-10 animate-pulse space-y-3">

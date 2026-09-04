@@ -1,7 +1,13 @@
-// Copilot tool implementations: everything the model may look at or propose.
+// Copilot tool implementations.
+//
+// Market structure (verified on-chain): OptionBook fills are ALWAYS buys -
+// the taker pays premium. Selling/underwriting happens only through the RFQ
+// auction (the shelf's auction panel for puts; the Position page for covered
+// calls). The copilot can therefore EXECUTE protection purchases, and can
+// EXPLAIN/point to the auction for underwriting.
 import { evaluateGates, DEFAULT_PARAMS } from "@/lib/engine/gates";
 import { getSeries, snapshotAt } from "@/lib/market-data";
-import { scanBook, type BookScan, type ShelfOffer } from "@/lib/thetanuts/book";
+import { scanBook, type BookScan, type BuyableOffer } from "@/lib/thetanuts/book";
 import type { ToolDef } from "@/lib/gonka";
 
 export const TOOL_DEFS: ToolDef[] = [
@@ -19,7 +25,7 @@ export const TOOL_DEFS: ToolDef[] = [
     function: {
       name: "get_shelf",
       description:
-        "Live offers: fillable short-dated put bids and put spreads on the Thetanuts OptionBook (ids D1.., S1..), plus 30-day RFQ indications (ids M1..). Premiums in USDC per 1 ETH contract.",
+        "Live Thetanuts market. BUYABLE now (you pay premium): protective puts P1.., put spreads PS1.., calls C1... SELLER reference for the 30-day underwriting auction: M1.. rows (not directly fillable; underwriting happens via the RFQ auction on the shelf page). Premiums in USDC per 1 ETH contract.",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -28,14 +34,14 @@ export const TOOL_DEFS: ToolDef[] = [
     function: {
       name: "propose_trade",
       description:
-        "Build a trade ticket for a fillable offer (id D1.. or S1.. from get_shelf) so the user can execute it with their wallet. usdcCollateral is how much USDC of collateral the user commits (fractional contracts are fine, e.g. 15 USDC). Only call this after the user has chosen an offer.",
+        "Build a BUY ticket for a fillable offer (id P.., PS.. or C.. from get_shelf) so the user can execute it with their wallet. usdcSpend is the premium the user pays (fractional contracts; $5-$50 is fine). Max loss = the premium paid. Only call after the user clearly chose an offer and amount.",
       parameters: {
         type: "object",
         properties: {
-          offerId: { type: "string", description: "e.g. D2 or S1" },
-          usdcCollateral: { type: "number", description: "USDC collateral to commit, e.g. 15" },
+          offerId: { type: "string", description: "e.g. P2, PS1 or C3" },
+          usdcSpend: { type: "number", description: "USDC premium to spend, e.g. 10" },
         },
-        required: ["offerId", "usdcCollateral"],
+        required: ["offerId", "usdcSpend"],
       },
     },
   },
@@ -51,26 +57,33 @@ async function getScan(): Promise<BookScan> {
 }
 
 export interface TradeTicket {
+  side: "buy";
   offerId: string;
-  kind: "put" | "putSpread";
+  kind: "put" | "putSpread" | "call";
   strikes: number[];
   expiry: number;
   dte: number;
   premiumPerContract: number;
-  collateralPerContract: number;
-  usdcCollateral: number;
+  usdcSpend: number;
   contracts: number;
-  premiumReceived: number;
-  maxLoss: number | null; // null = you own ETH at strike (cash-secured put)
-  /** Economic identity of the order. MMs re-sign orders with a fresh nonce
-   *  every ~60s, so nonce-based matching goes stale before a human can click
-   *  Execute; strikes+expiry+maker survive the refresh. */
-  matchKey: { maker: string; kind: "put" | "putSpread"; strikes: number[]; expiry: number };
+  maxLoss: number;            // = premium paid
+  maxPayout: number | null;   // null = uncapped (calls)
+  breakeven: number;
+  matchKey: { maker: string; kind: "put" | "putSpread" | "call"; strikes: number[]; expiry: number };
 }
 
-function offerLine(id: string, o: ShelfOffer): string {
+function offerLine(id: string, o: BuyableOffer, spot: number): string {
   const strikes = o.strikes.map((s) => `$${s}`).join("/");
-  return `${id}: ${o.kind === "put" ? "put" : "put spread"} ${strikes}, ${o.dte.toFixed(1)}d, premium $${o.premiumPerContract.toFixed(2)}/contract, collateral $${o.collateralPerContract.toFixed(0)}/contract, APY ${(o.apy * 100).toFixed(1)}%${o.assignProb != null ? `, assignment odds ${(o.assignProb * 100).toFixed(0)}%` : ""}, maker budget $${o.availableUsdc.toFixed(0)}`;
+  const name = o.kind === "put" ? "protective put" : o.kind === "putSpread" ? "put spread" : "call";
+  const payout =
+    o.kind === "call"
+      ? "uncapped upside"
+      : `pays (strike minus ETH settlement price)/contract, capped $${o.maxPayoutPerContract.toFixed(0)}`;
+  const moneyness =
+    o.kind === "call"
+      ? spot >= o.strikes[0] ? "IN the money" : "out of the money"
+      : spot <= o.strikes[0] ? "IN the money" : "out of the money";
+  return `${id}: ${name} ${strikes}, ${o.dte.toFixed(1)}d, cost $${o.premiumPerContract.toFixed(2)}/contract, ${payout}, ${moneyness}${o.assignProb != null ? `, payout odds ~${(o.assignProb * 100).toFixed(0)}%` : ""}`;
 }
 
 export async function runTool(
@@ -88,7 +101,7 @@ export async function runTool(
         high30d: snap.hi30,
         ma200: Math.round(snap.ma200),
         ivRank: +snap.ivRank.toFixed(2),
-        shelfOpen: d.open,
+        underwritingShelfOpen: d.open,
         gates: d.checks.map((c) => ({ gate: c.label, pass: c.pass, detail: c.detail })),
       }),
     };
@@ -97,51 +110,60 @@ export async function runTool(
   if (name === "get_shelf") {
     const scan = await getScan();
     const lines: string[] = [];
-    scan.sellablePuts.forEach((o, i) => lines.push(offerLine(`D${i + 1}`, o)));
-    scan.sellablePutSpreads.forEach((o, i) => lines.push(offerLine(`S${i + 1}`, o)));
+    scan.protectionPuts.forEach((o, i) => lines.push(offerLine(`P${i + 1}`, o, scan.spot)));
+    scan.protectionSpreads.forEach((o, i) => lines.push(offerLine(`PS${i + 1}`, o, scan.spot)));
+    scan.buyableCalls.forEach((o, i) => lines.push(offerLine(`C${i + 1}`, o, scan.spot)));
     scan.monthlyIndications.forEach((m, i) =>
       lines.push(
-        `M${i + 1} (30d RFQ indication, not directly fillable): put $${m.strike}, ${m.dte.toFixed(1)}d, est. seller premium $${m.estSellerPremium.toFixed(2)}/contract, APY ${(m.apy * 100).toFixed(1)}%${m.assignProb != null ? `, assignment odds ${(m.assignProb * 100).toFixed(0)}%` : ""}`,
+        `M${i + 1} (underwriting reference, NOT fillable - selling goes through the RFQ auction on the shelf page): put $${m.strike}, ${m.dte.toFixed(1)}d, buyers pay $${m.mmAskPerContract.toFixed(2)}/contract, an auction seller can target ~$${m.estSellerPremium.toFixed(2)}/contract (${(m.apy * 100).toFixed(1)}% APY on locked strike)`,
       ),
     );
     return {
       result: lines.length
-        ? `ETH spot $${scan.spot}. Offer ids (D.., S.., M..) are Monsoon's own labels for this list, not Thetanuts identifiers. Selling an option means: you receive the premium now, your collateral is locked until expiry.\nIMPORTANT: fills are FRACTIONAL. "collateral $X/contract" is per 1.0 contract, not a minimum. Committing any USDC amount (even $10) sells usdc/collateral contracts and earns premium pro-rata. Example: $12 into a put with $2400 collateral and $5 premium per contract sells 0.005 contracts and earns $0.025.\n${lines.join("\n")}`
+        ? `ETH spot $${scan.spot}. Offer ids are Monsoon's labels for this list. BUYING (P/PS/C): you pay the premium now; that premium is your max loss. Fills are FRACTIONAL: spending X USDC buys X/cost contracts (even $5 works).\n${lines.join("\n")}`
         : "No live offers right now.",
     };
   }
 
   if (name === "propose_trade") {
     const offerId = String(args.offerId ?? "").toUpperCase().trim();
-    const usdc = Number(args.usdcCollateral);
+    const usdc = Number(args.usdcSpend);
     if (!offerId || !Number.isFinite(usdc) || usdc <= 0) {
-      return { result: "ERROR: offerId and positive usdcCollateral required" };
+      return { result: "ERROR: offerId and positive usdcSpend required" };
     }
     const scan = await getScan();
-    const m = offerId.match(/^([DS])(\d+)$/);
-    if (!m) return { result: `ERROR: ${offerId} is not fillable. Only D.. and S.. offers can be executed; M.. rows are RFQ indications.` };
-    const list = m[1] === "D" ? scan.sellablePuts : scan.sellablePutSpreads;
+    const m = offerId.match(/^(P|PS|C)(\d+)$/);
+    if (!m) {
+      return {
+        result: `ERROR: ${offerId} is not fillable. Only P.., PS.. and C.. can be bought here; M.. rows are references for the underwriting auction on the shelf page.`,
+      };
+    }
+    const list =
+      m[1] === "P" ? scan.protectionPuts : m[1] === "PS" ? scan.protectionSpreads : scan.buyableCalls;
     const offer = list[Number(m[2]) - 1];
     if (!offer) return { result: `ERROR: offer ${offerId} not found; call get_shelf again.` };
-    if (usdc > offer.availableUsdc) {
-      return { result: `ERROR: maker budget for ${offerId} is $${offer.availableUsdc.toFixed(0)}` };
+    const contracts = usdc / offer.premiumPerContract;
+    if (contracts > offer.maxContracts) {
+      return {
+        result: `ERROR: maker budget caps this offer at ${offer.maxContracts.toFixed(4)} contracts (~$${(offer.maxContracts * offer.premiumPerContract).toFixed(2)})`,
+      };
     }
     const raw = offer.raw as { order: { maker: string } };
-    const contracts = usdc / offer.collateralPerContract;
-    const premiumReceived = contracts * offer.premiumPerContract;
+    const k = offer.strikes[0];
     const ticket: TradeTicket = {
+      side: "buy",
       offerId,
       kind: offer.kind,
       strikes: offer.strikes,
       expiry: offer.expiry,
       dte: offer.dte,
       premiumPerContract: offer.premiumPerContract,
-      collateralPerContract: offer.collateralPerContract,
-      usdcCollateral: usdc,
+      usdcSpend: usdc,
       contracts,
-      premiumReceived,
-      maxLoss:
-        offer.kind === "putSpread" ? usdc - premiumReceived : null,
+      maxLoss: usdc,
+      maxPayout:
+        offer.kind === "call" ? null : contracts * offer.maxPayoutPerContract,
+      breakeven: offer.kind === "call" ? k + offer.premiumPerContract : k - offer.premiumPerContract,
       matchKey: {
         maker: raw.order.maker,
         kind: offer.kind,
@@ -152,7 +174,7 @@ export async function runTool(
     return {
       result: JSON.stringify({
         ok: true,
-        note: "Ticket created and shown to the user with an Execute button. Summarize it: premium received, collateral locked, worst case.",
+        note: "BUY ticket created and shown to the user with an Execute button. Summarize: premium paid (= max loss), what it pays out and when, breakeven.",
         ticket: { ...ticket, matchKey: undefined },
       }),
       ticket,
@@ -162,12 +184,15 @@ export async function runTool(
   return { result: `ERROR: unknown tool ${name}` };
 }
 
-/** Find the current signed order for a ticket by economic identity.
- *  Returns the fresh order plus its current premium (MM prices drift between
- *  ticket creation and execution). */
+/** Find the current signed order for a ticket by economic identity. */
 export async function findRawOrder(matchKey: TradeTicket["matchKey"]) {
   const scan = await scanBook(DEFAULT_PARAMS.haircut);
-  const list = matchKey.kind === "put" ? scan.sellablePuts : scan.sellablePutSpreads;
+  const list =
+    matchKey.kind === "put"
+      ? scan.protectionPuts
+      : matchKey.kind === "putSpread"
+        ? scan.protectionSpreads
+        : scan.buyableCalls;
   const hit = list.find((o) => {
     const r = o.raw as { order: { maker: string } };
     return (

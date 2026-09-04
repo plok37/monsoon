@@ -2,12 +2,18 @@
 
 import { useState } from "react";
 import { useAccount, useConnect } from "wagmi";
-import { LightningIcon, CheckCircleIcon } from "@phosphor-icons/react";
+import { UmbrellaIcon, CheckCircleIcon } from "@phosphor-icons/react";
 import type { TradeTicket } from "@/lib/copilot/tools";
-import { executeFill, humanizeExecError } from "@/lib/thetanuts/execute";
+import { executeFill } from "@/lib/thetanuts/execute";
 
 const usd = (n: number, dp = 2) =>
   n.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp });
+
+const KIND_LABEL = {
+  put: "buy protective put",
+  putSpread: "buy put spread",
+  call: "buy call",
+} as const;
 
 export function TradeTicketCard({ ticket }: { ticket: TradeTicket }) {
   const { isConnected } = useAccount();
@@ -19,34 +25,36 @@ export function TradeTicketCard({ ticket }: { ticket: TradeTicket }) {
   async function run() {
     setState({ s: "executing" });
     try {
-      const { txHash } = await executeFill(ticket.matchKey, ticket.usdcCollateral);
+      const { txHash } = await executeFill(ticket.matchKey, ticket.usdcSpend);
       setState({ s: "done", tx: txHash });
     } catch (e) {
-      setState({ s: "error", msg: humanizeExecError(e) });
+      setState({ s: "error", msg: e instanceof Error ? e.message : "execution failed" });
     }
   }
 
   return (
     <div className="rounded-lg border border-accent-dim bg-surface p-4">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <LightningIcon size={16} weight="fill" className="text-accent" />
-        Trade ticket · {ticket.kind === "put" ? "sell cash-secured put" : "sell put spread"}
+        <UmbrellaIcon size={16} weight="fill" className="text-accent" />
+        Trade ticket · {KIND_LABEL[ticket.kind]}
       </div>
       <dl className="num mt-3 grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
         <dt className="font-sans text-faint">Strike{ticket.strikes.length > 1 ? "s" : ""}</dt>
         <dd className="text-right">{ticket.strikes.map((s) => `$${usd(s, 0)}`).join(" / ")}</dd>
         <dt className="font-sans text-faint">Expiry</dt>
         <dd className="text-right">{new Date(ticket.expiry * 1000).toUTCString().slice(5, 16)}</dd>
-        <dt className="font-sans text-faint">Collateral locked</dt>
-        <dd className="text-right">${usd(ticket.usdcCollateral)}</dd>
-        <dt className="font-sans text-faint">Premium received</dt>
-        <dd className="text-right text-accent">${usd(ticket.premiumReceived)}</dd>
-        <dt className="font-sans text-faint">Worst case</dt>
-        <dd className="text-right">
-          {ticket.maxLoss != null
-            ? `-$${usd(ticket.maxLoss)}`
-            : `own ETH at $${usd(ticket.strikes[0], 0)}`}
+        <dt className="font-sans text-faint">Contracts</dt>
+        <dd className="text-right">{ticket.contracts.toFixed(4)}</dd>
+        <dt className="font-sans text-faint">Premium paid</dt>
+        <dd className="text-right">${usd(ticket.usdcSpend)}</dd>
+        <dt className="font-sans text-faint">Max loss</dt>
+        <dd className="text-right">${usd(ticket.maxLoss)} (the premium)</dd>
+        <dt className="font-sans text-faint">Max payout</dt>
+        <dd className="text-right text-accent">
+          {ticket.maxPayout != null ? `$${usd(ticket.maxPayout)}` : "uncapped"}
         </dd>
+        <dt className="font-sans text-faint">Breakeven at expiry</dt>
+        <dd className="text-right">${usd(ticket.breakeven, 0)}</dd>
       </dl>
 
       {state.s === "done" ? (
@@ -73,9 +81,8 @@ export function TradeTicketCard({ ticket }: { ticket: TradeTicket }) {
                 : "Connect wallet to execute"}
           </button>
           <p className="mt-2 text-xs text-faint">
-            Your wallet will ask you to confirm each step: reserve withdrawal (only if your USDC
-            balance is short), a one-time USDC approval, then the fill. Rejecting any step stops
-            everything safely.
+            Up to 3 wallet confirmations: reserve withdrawal (only if your USDC is short), USDC
+            approval (first trade only), then the fill.
           </p>
           {state.s === "error" && (
             <p className="mt-2 break-words text-sm text-warn">{state.msg}</p>

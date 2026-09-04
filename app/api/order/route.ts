@@ -1,4 +1,4 @@
-// GET /api/order?maker=0x..&kind=put|putSpread&strikes=2420,2400&expiry=1788508800
+// GET /api/order?maker=0x..&kind=put|putSpread|call&strikes=2420,2400&expiry=1788508800
 // -> the CURRENT signed OptionBook order matching that economic identity, plus
 // its current premium. MMs re-sign orders every ~60s, so lookups are by
 // maker+type+strikes+expiry, never by nonce. 410 if the offer left the book.
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const kind = q.get("kind");
   const strikes = (q.get("strikes") ?? "").split(",").map(Number).filter(Number.isFinite);
   const expiry = Number(q.get("expiry"));
-  if (!maker || (kind !== "put" && kind !== "putSpread") || !strikes.length || !Number.isFinite(expiry)) {
+  if (!maker || (kind !== "put" && kind !== "putSpread" && kind !== "call") || !strikes.length || !Number.isFinite(expiry)) {
     return NextResponse.json(
       { error: "maker, kind, strikes and expiry required" },
       { status: 400 },
