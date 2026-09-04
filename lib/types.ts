@@ -29,6 +29,7 @@ export interface MonthlyIndicationView {
 
 export interface ShelfLive {
   mode: "live";
+  forced?: boolean;
   snapshot: MarketSnapshot;
   decision: GateDecision;
   spot: number;

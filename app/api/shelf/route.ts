@@ -40,10 +40,17 @@ export async function GET(req: NextRequest) {
 
   const [book] = await Promise.all([scanBook(DEFAULT_PARAMS.haircut)]);
   const snapshot = snapshotAt(series, undefined, book.spot);
-  const decision = evaluateGates(snapshot, DEFAULT_PARAMS);
+  let decision = evaluateGates(snapshot, DEFAULT_PARAMS);
+
+  // ?force=open renders the open-shelf layout with LIVE data for testing and
+  // screenshots. The gate checks stay truthful; only the final decision is
+  // overridden, and the response is flagged so the UI shows a preview badge.
+  const forced = req.nextUrl.searchParams.get("force") === "open" && !decision.open;
+  if (forced) decision = { ...decision, open: true };
 
   return NextResponse.json({
     mode: "live",
+    forced,
     snapshot,
     decision,
     spot: book.spot,

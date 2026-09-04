@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "motion/react";
 import { CloudSunIcon, CloudLightningIcon, ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
@@ -15,18 +15,26 @@ const DEMO_DATE = "2022-06-18";
 const fmtUsd = (n: number, dp = 0) =>
   n.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp });
 
-async function fetchShelf(demo: boolean): Promise<ShelfResponse> {
-  const res = await fetch(demo ? `/api/shelf?demo=${DEMO_DATE}` : "/api/shelf");
+async function fetchShelf(demo: boolean, force = false): Promise<ShelfResponse> {
+  const res = await fetch(
+    demo ? `/api/shelf?demo=${DEMO_DATE}` : force ? "/api/shelf?force=open" : "/api/shelf",
+  );
   if (!res.ok) throw new Error(`shelf api ${res.status}`);
   return res.json();
 }
 
 export function ShelfView() {
   const [demo, setDemo] = useState(false);
+  const [force, setForce] = useState(false);
+  useEffect(() => {
+    try {
+      setForce(new URLSearchParams(window.location.search).get("force") === "open");
+    } catch {}
+  }, []);
   const reduce = useReducedMotion();
   const { data, isPending, isError, refetch } = useQuery({
-    queryKey: ["shelf", demo],
-    queryFn: () => fetchShelf(demo),
+    queryKey: ["shelf", demo, force],
+    queryFn: () => fetchShelf(demo, force),
     refetchInterval: demo ? false : 60_000,
   });
   const { data: reserveApy } = useQuery({
@@ -71,6 +79,11 @@ export function ShelfView() {
               <CloudSunIcon size={18} className="text-faint" />
             )}
             {data.mode === "demo" ? `Replaying ${data.date}` : "Live on Base mainnet"}
+            {data.mode === "live" && data.forced === true && (
+              <span className="rounded bg-surface-raised px-2 py-0.5 text-xs text-warn">
+                gates overridden for preview
+              </span>
+            )}
           </div>
           <h1 className="mt-3 max-w-xl text-4xl font-semibold tracking-tighter md:text-5xl">
             {open ? "The storm is here. Underwriting is open." : "Calm skies. Underwriting is closed."}
