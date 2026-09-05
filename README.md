@@ -1,29 +1,46 @@
 # Monsoon
 
-**Premiums arrive with the storm.** Monsoon is a disciplined ETH "insurance underwriting" app built on the [Thetanuts SDK](https://docs.thetanuts.finance/sdk) on Base mainnet, with an AI copilot whose reasoning runs on the [Gonka Router](https://gonkarouter.io).
+**Sell ETH insurance only when the storm pays for it.**
 
-Built for the MUBA Blockchain Hackathon 2026 by team **Formal Sweatpants**, targeting the *Best Product on the Thetanuts SDK* and *AI × Options* tracks.
+A two-sided, non-custodial ETH options market on [Thetanuts Finance](https://thetanuts.finance) (Base mainnet), with an AI copilot whose every answer is independently fact-checked. Built for the MUBA Blockchain Hackathon 2026.
 
-## The idea
+**Live**: https://monsoon-zeta.vercel.app
 
-Selling cash-secured puts ("the wheel") is how retail can act like an insurance company: collect premium now, promise to buy ETH at a lower strike if things go bad. The catch, proven by our own backtest, is that selling premium **every cycle regardless of conditions loses money**: over Apr 2021 to Aug 2026, a naive wheel collected $159k of premium on a $100k account and still finished at $65k.
+## What it does
 
-Monsoon only underwrites when three gates all pass:
+Selling cash-secured puts ("the wheel") is how ordinary people can act like an insurance company: get paid a premium now for promising to buy ETH cheaper. Every existing option vault sells that insurance **every week, at any price**. We backtested that on 5.4 years of real ETH data: the naive wheel collected $159k of premium on a $100k account and still finished at **$65k** (71% max drawdown). Premium is not income.
 
-1. **Price has pulled back** — ETH is at least 10% below its 30-day high. We sell insurance when there is a reason to buy it.
-2. **Insurance is expensive** — implied-vol rank over the trailing year is elevated.
-3. **Premium worth the risk** — at a strike capped by the 200-day average, the net premium clears a floor per 30-day cycle.
+Monsoon has two sides:
 
-If any gate fails, the shelf is closed and the reserve simply earns lending yield, like an insurer's float. Same backtest, same costs: the gated wheel finished at **$138k (6.2% APY, 31.5% max drawdown)** vs buy-and-hold's $124k (79% drawdown), and was **up 9% in 2022** while ETH lost 65%. See the in-app **Evidence** page; reproduce it with `research/backtest.py` in the parent repo.
+- **Underwrite (sell insurance)** — only when three gates pass: ETH is 10%+ below its 30-day high, implied-vol rank is elevated, and the premium clears a floor at a historically-anchored strike. Selling happens through Thetanuts' sealed-bid **RFQ auctions**, creating **physically-settled** options: assignment delivers real ETH, and the Position page runs the wheel's second leg — a covered-call auction with a cost-basis guard. While the gates are closed, idle USDC earns Aave yield from the user's own wallet (the insurer's "float").
+- **Protect (buy insurance)** — every OptionBook offer is instantly buyable: protective puts, defined-payout spreads, calls. The copilot builds the ticket (premium = max loss, breakeven, payout odds); your wallet signs.
 
-## What's inside
+Backtest (Apr 2021 – Aug 2026, $100k, same pricing and costs): gated wheel **$138k, 31.5% max DD, up 9% in 2022** vs buy-and-hold $124k (79% DD) vs naive wheel $65k (71% DD). See `/evidence` in the app.
 
-- **Shelf** (`/`) — live gate status from real market data (Coinbase candles + Deribit DVOL), live sellable put bids and defined-risk put spreads from the Thetanuts OptionBook, and 30-day RFQ premium indications. A "Replay June 2022" toggle shows the open shelf at the crash bottom.
-- **Copilot** (`/copilot`) — chat that grounds every number in tool calls (`get_conditions`, `get_shelf`, `propose_trade`) and produces an executable trade ticket. All LLM reasoning goes through Gonka Router; request ids are shown under each answer.
-- **Position** (`/position`) — your live Thetanuts positions and trade history from the indexer.
-- **Evidence** (`/evidence`) — the 5.4-year backtest, honestly presented, assumptions included.
+## The AI copilot (Gonka)
 
-Execution is fully non-custodial: the server only reads; fills are signed by the user's wallet against Thetanuts' audited OptionBook contract.
+All reasoning runs on the [Gonka Router](https://gonkarouter.io) decentralized network (MiniMax-M2.7), request IDs shown in the UI. Every answer is re-checked by an **independent second Gonka inference** that scores its faithfulness to the live tool data (0–100); below 80, a self-correction loop rewrites the answer before the user sees it. The model can never state a number that didn't come from an on-chain tool call, and it states max loss before any upside.
+
+## Architecture
+
+```
+app/
+  api/shelf      gates + live Thetanuts order book (protection + RFQ reference)
+  api/copilot    Gonka tool loop (get_conditions / get_shelf / propose_trade)
+                 + verification pass + self-correction
+  api/rfq        sealed-bid auction status (phases, bids, best premium)
+  api/order      fresh signed order by economic identity (MMs re-sign every ~60s)
+  api/reserve    live Aave v3 Base USDC supply APY
+lib/
+  engine/        the gate engine - same code the backtest validates (npm test)
+  thetanuts/     book scanner, buy execution, RFQ seller flows (puts + covered calls)
+  market-data.ts Coinbase daily candles + Deribit DVOL, bundled + live-extended
+research/
+  backtest.py    the 5.4-year reference backtest (python3 research/backtest.py)
+  parity_fixture.json  48 historical gate decisions the TS engine must reproduce
+```
+
+Non-custodial throughout: the server holds no keys; every transaction is signed by the user's wallet. Collateral for RFQ auctions moves only at settlement.
 
 ## Run it
 
@@ -31,18 +48,19 @@ Execution is fully non-custodial: the server only reads; fills are signed by the
 npm install
 cp .env.example .env.local   # add your GONKA_API_KEY
 npm run dev
+npm test                     # gate-engine parity vs the Python backtest
 ```
 
-- `npm test` — parity test proving the TypeScript gate engine matches the Python backtest reference (fixtures in `../research/`).
-- `npm run history` — rebuild the bundled price/vol history from the research CSV.
+Requires a Base-mainnet wallet (MetaMask/Rabby) with a little USDC to trade. `/?force=open` previews the open-shelf layout on live data (visibly badged as an override).
 
-## Architecture notes
+## Hard-won facts (see also the Devfolio "challenges")
 
-- `lib/engine/` — the gate engine (Black-Scholes r=0, Acklam inverse normal). Identical math to the backtest; `scripts/parity.ts` enforces it.
-- `lib/thetanuts/` — read-side book scanning (server) and wallet-side execution (client). OptionBook order prices are 8-decimal; USDC amounts 6-decimal.
-- `lib/market-data.ts` — bundled daily series (2019 to the build date) extended live from Coinbase and Deribit at request time.
-- `app/api/copilot` — Gonka Router tool loop (OpenAI-compatible `chat/completions`).
+- **OptionBook takers are always buyers** — every fill pays premium, regardless of the order's `isBuyer` flag. We verified this with `previewFillOrder` arithmetic against live orders after building the wrong direction first. Selling happens only via RFQ.
+- MMs re-sign orders with a new nonce every ~60s; match orders by maker + type + strikes + expiry.
+- Physical RFQ options must expire Fridays 08:00 UTC (per the SDK contract docs).
+- RFQ amounts are totals in the collateral token's decimals (USDC puts 6dp, WETH calls 18dp).
+- Never annualize a sub-7-day option.
 
-## Honest limitations
+## Team
 
-A backtest is evidence, not a guarantee; all our "policies" share one correlated risk (ETH), so drawdowns are bounded, not eliminated. Thirty-day put selling routes through Thetanuts RFQ, where realized premiums depend on market-maker bids. This is a hackathon prototype, not financial advice.
+Formal Sweatpants — MUBA Blockchain Hackathon 2026. Prototype software; options carry risk of loss; not financial advice.

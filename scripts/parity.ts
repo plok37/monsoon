@@ -10,7 +10,7 @@ interface FixtureRow {
   ivRank: number; strike: number; premium: number; sold: boolean;
 }
 
-const fixturePath = join(__dirname, "..", "..", "research", "parity_fixture.json");
+const fixturePath = join(__dirname, "..", "research", "parity_fixture.json");
 const rows: FixtureRow[] = JSON.parse(readFileSync(fixturePath, "utf8"));
 
 let failures = 0;
