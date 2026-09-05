@@ -184,7 +184,9 @@ export async function POST(req: NextRequest) {
       {
         error: msg.includes("GONKA_API_KEY")
           ? "Copilot is not configured yet: the GONKA_API_KEY environment variable is missing."
-          : `The Gonka Router request failed: ${msg}`,
+          : msg.includes("Gonka network is having a moment")
+            ? msg
+            : "The decentralized AI network hiccuped on that request. Ask again - it usually clears in seconds.",
         requestIds,
       },
       { status },

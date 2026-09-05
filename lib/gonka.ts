@@ -41,23 +41,45 @@ export async function gonkaChat(
 ): Promise<GonkaResult> {
   const key = process.env.GONKA_API_KEY;
   if (!key) throw new Error("GONKA_API_KEY is not set");
-  const res = await fetch(`${BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      ...(tools && tools.length ? { tools, tool_choice: "auto" } : {}),
-      temperature: 0.3,
-      max_tokens: 2500,
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`gonka ${res.status}: ${body.slice(0, 300)}`);
+
+  // The decentralized router occasionally throws transient 5xx (Cloudflare
+  // pages). Retry twice with a short backoff before surfacing an error.
+  let res: Response | null = null;
+  let lastErr = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      res = await fetch(`${BASE}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages,
+          ...(tools && tools.length ? { tools, tool_choice: "auto" } : {}),
+          temperature: 0.3,
+          max_tokens: 2500,
+        }),
+      });
+      if (res.ok) break;
+      lastErr = `gonka ${res.status}`;
+      if (res.status < 500 && res.status !== 429) {
+        const body = await res.text();
+        throw new Error(`gonka ${res.status}: ${body.slice(0, 200)}`);
+      }
+      res = null;
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith("gonka ")) throw e;
+      lastErr = e instanceof Error ? e.message : "network error";
+      res = null;
+    }
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
+  }
+  if (!res) {
+    throw new Error(
+      `The Gonka network is having a moment (${lastErr}). Please ask again in a few seconds.`,
+    );
   }
   const json = await res.json();
   return {
