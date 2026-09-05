@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { gonkaChat, type ChatMessage } from "@/lib/gonka";
 import { TOOL_DEFS, runTool, type TradeTicket } from "@/lib/copilot/tools";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const SYSTEM_PROMPT = `You are the Monsoon copilot, for a two-sided ETH options market on Thetanuts (Base mainnet). You explain options in plain language for a smart beginner.
 
@@ -102,18 +102,31 @@ export async function POST(req: NextRequest) {
   const requestIds: string[] = [];
   const toolLog: string[] = [];
   let ticket: TradeTicket | undefined;
+  const startedAt = Date.now();
+  const elapsed = () => (Date.now() - startedAt) / 1000;
 
   try {
     for (let round = 0; round < 6; round++) {
+      // stay well inside the function limit: better a reply without
+      // verification than a platform timeout page
+      if (elapsed() > 90) {
+        return NextResponse.json({
+          reply:
+            "The market data took unusually long to assemble. Please ask that again - it is usually much faster.",
+          ticket: ticket ?? null,
+          requestIds,
+          verification: null,
+        });
+      }
       const { message, requestId } = await gonkaChat(messages, TOOL_DEFS);
       if (requestId) requestIds.push(requestId);
 
       if (!message.tool_calls?.length) {
         let reply = stripThink(message.content);
-        let verification = await verifyReply(reply, toolLog);
+        let verification = elapsed() < 70 ? await verifyReply(reply, toolLog) : null;
         // Self-correction: if the verifier flags factual errors, give the model
         // one chance to fix them before the user ever sees the answer.
-        if (verification && verification.score < 80 && verification.issues.length) {
+        if (verification && verification.score < 80 && verification.issues.length && elapsed() < 85) {
           try {
             const { message: fixed, requestId: fixId } = await gonkaChat([
               ...messages,

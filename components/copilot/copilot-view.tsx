@@ -27,8 +27,8 @@ function renderBold(text: string) {
 
 const SUGGESTIONS = [
   "Why is the shelf closed right now?",
-  "Show me the shelf and explain the safest offer",
-  "Sell the smallest put you can with 15 USDC",
+  "I fear a crash this week. What protection can $5 buy?",
+  "How do I underwrite and earn premium here?",
 ];
 
 const STORAGE_KEY = "monsoon-copilot-chat";
@@ -76,7 +76,16 @@ export function CopilotView() {
           messages: next.map(({ role, content }) => ({ role, content })),
         }),
       });
-      const json = await res.json();
+      const text = await res.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        // platform error page (e.g. a function timeout) - not our JSON
+        throw new Error(
+          "The copilot took too long on that one. Ask again - repeat questions are usually fast.",
+        );
+      }
       if (!res.ok) throw new Error(json.error ?? `copilot ${res.status}`);
       setItems((cur) => [
         ...cur,
