@@ -22,12 +22,12 @@ export function Nav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-background/85 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-8 px-4">
+      <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center gap-x-8 gap-y-1 px-4 py-2 sm:h-16 sm:flex-nowrap sm:py-0">
         <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
           <CloudRainIcon size={22} weight="fill" className="text-accent" />
           Monsoon
         </Link>
-        <nav className="flex items-center gap-1 text-sm">
+        <nav className="order-3 -mx-1 flex w-full items-center gap-1 overflow-x-auto text-sm sm:order-none sm:mx-0 sm:w-auto">
           {links.map((l) => (
             <Link
               key={l.href}

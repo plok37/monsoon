@@ -8,6 +8,7 @@ import type { ShelfResponse, OfferView, MonthlyIndicationView } from "@/lib/type
 import { GateChecklist } from "./gate-checklist";
 import { OfferCard } from "./offer-card";
 import { ReservePanel } from "@/components/reserve/reserve-panel";
+import { WeatherBackdrop } from "./weather-backdrop";
 import { RfqUnderwrite } from "@/components/rfq/rfq-underwrite";
 
 const DEMO_DATE = "2022-06-18";
@@ -73,9 +74,10 @@ export function ShelfView() {
         initial={reduce ? false : { opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="grid gap-10 pb-12 pt-16 lg:grid-cols-[1fr_auto] lg:items-end"
+        className="relative grid gap-10 pb-12 pt-16 lg:grid-cols-[1fr_auto] lg:items-end"
       >
-        <div>
+        <WeatherBackdrop storm={open} />
+        <div className="relative">
           <div className="flex items-center gap-2 text-sm text-muted">
             {open ? (
               <CloudLightningIcon size={18} weight="fill" className="text-accent" />
@@ -98,7 +100,7 @@ export function ShelfView() {
               : "Monsoon sells ETH insurance only when it pays. Until then, the reserve earns quiet yield."}
           </p>
         </div>
-        <dl className="flex gap-8 lg:justify-end">
+        <dl className="relative flex gap-8 lg:justify-end">
           <div>
             <dt className="text-sm text-faint">ETH spot</dt>
             <dd className="num mt-1 text-2xl font-semibold">${fmtUsd(spot)}</dd>
