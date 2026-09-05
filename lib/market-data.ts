@@ -45,6 +45,28 @@ async function fetchRecentDvol(sinceISO: string): Promise<Map<string, number>> {
   return out;
 }
 
+let liveDvolCache: { value: number; at: number } | null = null;
+
+/** Latest minute-resolution DVOL tick (cached 5 min). Null on API failure. */
+export async function getLiveDvol(): Promise<number | null> {
+  if (liveDvolCache && Date.now() - liveDvolCache.at < 5 * 60 * 1000) return liveDvolCache.value;
+  try {
+    const now = Date.now();
+    const url =
+      `https://www.deribit.com/api/v2/public/get_volatility_index_data` +
+      `?currency=ETH&start_timestamp=${now - 2 * 3600_000}&end_timestamp=${now}&resolution=60`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data: number[][] = (await res.json()).result.data;
+    if (!data?.length) return null;
+    const value = data[data.length - 1][4] ?? data[data.length - 1][1];
+    liveDvolCache = { value, at: Date.now() };
+    return value;
+  } catch {
+    return null;
+  }
+}
+
 /** Bundled series extended with any days since the snapshot. Falls back to bundled data on API failure. */
 export async function getSeries(): Promise<Series> {
   if (cached && Date.now() - cached.at < TTL_MS) return cached.series;

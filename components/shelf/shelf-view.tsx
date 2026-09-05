@@ -109,7 +109,7 @@ export function ShelfView() {
           <div>
             <dt className="text-sm text-faint">Implied vol</dt>
             <dd className="num mt-1 text-2xl font-semibold">
-              {(data.snapshot.sigma * 100).toFixed(0)}
+              {(data.snapshot.sigma * 100).toFixed(1)}
             </dd>
           </div>
           <div>

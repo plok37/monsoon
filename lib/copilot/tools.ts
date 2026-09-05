@@ -6,7 +6,7 @@
 // calls). The copilot can therefore EXECUTE protection purchases, and can
 // EXPLAIN/point to the auction for underwriting.
 import { evaluateGates, DEFAULT_PARAMS } from "@/lib/engine/gates";
-import { getSeries, snapshotAt } from "@/lib/market-data";
+import { getLiveDvol, getSeries, snapshotAt } from "@/lib/market-data";
 import { scanBook, type BookScan, type BuyableOffer } from "@/lib/thetanuts/book";
 import type { ToolDef } from "@/lib/gonka";
 
@@ -91,8 +91,8 @@ export async function runTool(
   args: Record<string, unknown>,
 ): Promise<{ result: string; ticket?: TradeTicket }> {
   if (name === "get_conditions") {
-    const [series, scan] = await Promise.all([getSeries(), getScan()]);
-    const snap = snapshotAt(series, undefined, scan.spot);
+    const [series, scan, liveDvol] = await Promise.all([getSeries(), getScan(), getLiveDvol()]);
+    const snap = snapshotAt(series, undefined, scan.spot, liveDvol != null ? liveDvol / 100 : undefined);
     const d = evaluateGates(snap, DEFAULT_PARAMS);
     return {
       result: JSON.stringify({

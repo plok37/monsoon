@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { evaluateGates, DEFAULT_PARAMS } from "@/lib/engine/gates";
 import { bsPut, putAssignProb, strikeForPutDelta } from "@/lib/engine/math";
-import { getSeries, indexOfDate, snapshotAt } from "@/lib/market-data";
+import { getLiveDvol, getSeries, indexOfDate, snapshotAt } from "@/lib/market-data";
 import { scanBook } from "@/lib/thetanuts/book";
 
 export const revalidate = 0;
@@ -38,8 +38,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ mode: "demo", date: demo, snapshot, decision, offers });
   }
 
-  const [book] = await Promise.all([scanBook(DEFAULT_PARAMS.haircut)]);
-  const snapshot = snapshotAt(series, undefined, book.spot);
+  const [book, liveDvol] = await Promise.all([scanBook(DEFAULT_PARAMS.haircut), getLiveDvol()]);
+  const snapshot = snapshotAt(series, undefined, book.spot, liveDvol != null ? liveDvol / 100 : undefined);
   let decision = evaluateGates(snapshot, DEFAULT_PARAMS);
 
   // ?force=open renders the open-shelf layout with LIVE data for testing and
