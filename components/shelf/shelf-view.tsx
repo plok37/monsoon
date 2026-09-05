@@ -67,7 +67,9 @@ export function ShelfView() {
   const spot = data.mode === "live" ? data.spot : data.snapshot.spot;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-20">
+    <div className="relative">
+      <WeatherBackdrop storm={open} />
+      <div className="relative mx-auto max-w-6xl px-4 pb-20">
       {/* condition banner */}
       <motion.section
         key={`${data.mode}-${open}`}
@@ -76,7 +78,6 @@ export function ShelfView() {
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="relative grid gap-10 pb-12 pt-16 lg:grid-cols-[1fr_auto] lg:items-end"
       >
-        <WeatherBackdrop storm={open} />
         <div className="relative">
           <div className="flex items-center gap-2 text-sm text-muted">
             {open ? (
@@ -155,6 +156,7 @@ export function ShelfView() {
           <LiveClosedShelf monthly={data.offers.monthlyRfq} protection={data.offers.protectionPuts} />
         )}
       </section>
+      </div>
     </div>
   );
 }

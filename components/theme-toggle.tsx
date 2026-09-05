@@ -4,17 +4,17 @@ import { useEffect, useState } from "react";
 import { SunIcon, MoonStarsIcon } from "@phosphor-icons/react";
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<"dark" | "light">("light");
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   useEffect(() => {
-    if (document.documentElement.dataset.theme === "dark") setTheme("dark");
+    if (document.documentElement.dataset.theme === "light") setTheme("light");
   }, []);
 
   function toggle() {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
-    if (next === "dark") {
-      document.documentElement.dataset.theme = "dark";
+    if (next === "light") {
+      document.documentElement.dataset.theme = "light";
     } else {
       delete document.documentElement.dataset.theme;
     }
