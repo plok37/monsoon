@@ -64,6 +64,16 @@ body {
   color: var(--foreground);
 }
 
+/* Tailwind v4's preflight leaves buttons with the default cursor; restore
+   the expected affordance everywhere, including disabled states. */
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
 /* numerals always tabular */
 .num {
   font-family: var(--font-geist-mono), monospace;
